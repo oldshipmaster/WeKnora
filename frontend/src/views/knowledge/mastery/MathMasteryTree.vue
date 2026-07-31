@@ -98,7 +98,6 @@ const selectedBlockedChain = computed(() => selectedNode.value
 const selectedSources = computed(() => selectedNode.value
   ? sources.value.filter(source => source.node_id === selectedNode.value?.id || (!source.node_id && source.grade === selectedNode.value?.grade && source.term === selectedNode.value?.term))
   : [])
-const selectedExamReady = computed(() => selectedSources.value.some(source => source.source_type === 'exam' && source.status === 'ready'))
 
 const textbookSources = computed(() => sources.value.filter(source => source.source_type === 'textbook'))
 
@@ -269,7 +268,6 @@ onMounted(loadTree)
               :knowledge-base-id="props.knowledgeBaseId"
               :node="selectedNode"
               :sources="selectedSources"
-              :enabled="selectedExamReady"
               @assessment="handleDiagnosticAssessment"
             />
           </template>

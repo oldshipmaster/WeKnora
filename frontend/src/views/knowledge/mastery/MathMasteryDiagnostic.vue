@@ -15,11 +15,9 @@ const props = withDefaults(defineProps<{
   knowledgeBaseId: string
   node: MathMasteryNode
   sources?: MathSourceBinding[]
-  enabled?: boolean
   profileId?: string
 }>(), {
   sources: () => [],
-  enabled: true,
   profileId: 'local-child',
 })
 
@@ -114,18 +112,21 @@ watch(() => props.node.id, reset)
       <strong>{{ currentQuestion.scoring_rule?.prompt || '请回看原试卷完成这道题。' }}</strong>
       <p class="diagnostic-locator">{{ currentQuestion.question_locator }}</p>
       <p v-if="currentSource" class="diagnostic-source">来源：{{ currentSource.title }}</p>
+      <p class="diagnostic-instruction">
+        请孩子先在纸上作答，再由家长核对原卷或答案并记录结果；本页面不进行自动判题。
+      </p>
       <p v-if="currentQuestion.scoring_rule?.answer_hint" class="diagnostic-hint">
         核对提示：{{ currentQuestion.scoring_rule.answer_hint }}
       </p>
       <div class="diagnostic-actions">
-        <t-button theme="danger" variant="outline" :loading="submitting" @click="recordAnswer(false)">答错</t-button>
-        <t-button theme="success" :loading="submitting" @click="recordAnswer(true)">答对</t-button>
+        <t-button theme="danger" variant="outline" :loading="submitting" @click="recordAnswer(false)">家长记录：答错</t-button>
+        <t-button theme="success" :loading="submitting" @click="recordAnswer(true)">家长记录：答对</t-button>
       </div>
     </div>
 
     <p v-if="errorMessage" class="diagnostic-error" role="alert">{{ errorMessage }}</p>
-    <t-button v-if="!active" block theme="primary" :disabled="!enabled" :loading="loading" @click="beginDiagnostic">
-      {{ enabled ? (questions.length ? '再测一轮' : '开始诊断') : '诊断题库待补齐' }}
+    <t-button v-if="!active" block theme="primary" :loading="loading" @click="beginDiagnostic">
+      {{ questions.length ? '再测一轮' : '开始诊断' }}
     </t-button>
   </section>
 </template>
@@ -144,8 +145,10 @@ watch(() => props.node.id, reset)
 .diagnostic-card strong { color: #eef5f3; font-size: 15px; line-height: 1.65; white-space: pre-wrap; }
 .diagnostic-locator,
 .diagnostic-source,
+.diagnostic-instruction,
 .diagnostic-hint { margin: 0; color: #9bb0ae; font-size: 12px; line-height: 1.5; }
 .diagnostic-locator { color: #77c7a4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.diagnostic-instruction { color: #d7e7e2; }
 .diagnostic-hint { padding: 9px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.045); }
 .diagnostic-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .diagnostic-error { margin: 0; color: #f1aaa2; font-size: 12px; line-height: 1.55; }
