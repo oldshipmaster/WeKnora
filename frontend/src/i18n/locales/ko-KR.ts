@@ -3506,6 +3506,7 @@ export default {
       viewInGraph: '그래프에서 보기',
       tabDocuments: '문서',
       tabGraph: '그래프',
+      tabMastery: '숙달 트리',
       tabGraphTip: 'Wiki 페이지 간의 링크 관계 그래프(페이지 링크 그래프)입니다. \'지식 베이스 설정 → 지식 그래프\'에서 구성하는 LLM 기반 엔티티-관계 지식 그래프와는 다른 개념입니다.',
       searchPlaceholder: 'Wiki 페이지 검색...',
       searchNoResults: '일치하는 페이지가 없습니다',

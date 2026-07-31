@@ -48,6 +48,7 @@ import KbTagManageDrawer from './components/KbTagManageDrawer.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import { useUploadConfirmStore, type UploadConfirmResult } from '@/stores/uploadConfirm';
 import WikiBrowser from './wiki/WikiBrowser.vue';
+import MathMasteryTree from './mastery/MathMasteryTree.vue';
 import { getWikiStats } from '@/api/wiki';
 import {
   isKnowledgeParseInFlight,
@@ -68,7 +69,7 @@ const kbLoading = ref(false);
 const docListLoading = ref(true);
 const isFAQ = computed(() => (kbInfo.value?.type || '') === 'faq');
 const isWiki = computed(() => !!kbInfo.value?.indexing_strategy?.wiki_enabled);
-const validTabs = ['documents', 'wiki', 'graph'] as const
+const validTabs = ['documents', 'wiki', 'graph', 'mastery'] as const
 type KbTab = typeof validTabs[number]
 const initTab = validTabs.includes(route.query.tab as any) ? (route.query.tab as KbTab) : 'documents'
 const activeKbTab = ref<KbTab>(initTab);
@@ -2088,19 +2089,19 @@ async function createNewSession(value: string): Promise<void> {
                 </template>
               </button>
               <t-icon name="chevron-right" class="breadcrumb-separator" />
-              <template v-if="isWiki">
+              <template>
                 <span :class="['breadcrumb-tab', { active: activeKbTab === 'documents' }]"
                   @click="activeKbTab = 'documents'">{{ $t('knowledgeEditor.wikiBrowser.tabDocuments') }}</span>
-                <span class="breadcrumb-tab-sep">/</span>
-                <span :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
+                <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
+                <span v-if="isWiki" :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
                   @click="activeKbTab = 'wiki'">
                   Wiki
                   <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
                     <t-loading size="small" class="breadcrumb-tab-indicator" />
                   </t-tooltip>
                 </span>
-                <span class="breadcrumb-tab-sep">/</span>
-                <t-tooltip :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
+                <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
+                <t-tooltip v-if="isWiki" :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
                   <span :class="['breadcrumb-tab', { active: activeKbTab === 'graph', indexing: wikiIsIndexing }]"
                     @click="activeKbTab = 'graph'">
                     {{ $t('knowledgeEditor.wikiBrowser.tabGraph') }}
@@ -2109,8 +2110,10 @@ async function createNewSession(value: string): Promise<void> {
                     </t-tooltip>
                   </span>
                 </t-tooltip>
+                <span class="breadcrumb-tab-sep">/</span>
+                <span :class="['breadcrumb-tab', { active: activeKbTab === 'mastery' }]"
+                  @click="activeKbTab = 'mastery'">{{ $t('knowledgeEditor.wikiBrowser.tabMastery') }}</span>
               </template>
-              <span v-else class="breadcrumb-current">{{ $t('knowledgeEditor.document.title') }}</span>
             </h2>
             <!-- 标题行右侧的动作锚点：聚拢"信息"和"设置"两个圆形按钮。 -->
             <div class="kb-title-actions">
@@ -2147,7 +2150,11 @@ async function createNewSession(value: string): Promise<void> {
           @view-graph="onViewWikiInGraph" />
       </div>
 
-      <template v-if="activeKbTab === 'documents' || !isWiki">
+      <div v-if="activeKbTab === 'mastery'" class="mastery-main-area">
+        <MathMasteryTree v-if="kbId" :knowledge-base-id="kbId" />
+      </div>
+
+      <template v-if="activeKbTab === 'documents'">
         <div class="knowledge-main">
           <div class="tag-content">
             <div class="doc-card-area">
@@ -2542,6 +2549,12 @@ async function createNewSession(value: string): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.mastery-main-area {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 // 与列表页一致：浅灰底圆角区，左侧筛选为白底卡片

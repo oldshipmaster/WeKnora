@@ -3506,6 +3506,7 @@ export default {
       viewInGraph: '在图谱中查看',
       tabDocuments: '文档',
       tabGraph: '图谱',
+      tabMastery: '掌握树',
       tabGraphTip: 'Wiki 页面之间的引用关系图（即页面链接图谱），与「知识库设置 → 知识图谱」中基于 LLM 抽取的实体-关系图谱不是同一个概念',
       searchPlaceholder: '搜索 Wiki 页面...',
       searchNoResults: '没有找到匹配的页面',
