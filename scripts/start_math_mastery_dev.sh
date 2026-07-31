@@ -9,7 +9,9 @@ cd "${repo_dir}"
 
 case "${mode}" in
   infra)
-    exec docker compose -f docker-compose.dev.yml --profile neo4j up -d postgres redis docreader neo4j
+    runtime_dir="${WEKNORA_MATH_RUNTIME_DIR:-/Volumes/extfastdata01/WeKnora-runtime/math-mastery}"
+    mkdir -p "${runtime_dir}/postgres" "${runtime_dir}/redis" "${runtime_dir}/docreader" "${runtime_dir}/neo4j"
+    exec docker compose -f docker-compose.dev.yml -f docker-compose.math.yml --profile neo4j up -d postgres redis docreader neo4j
     ;;
   app)
     mkdir -p "${cache_root}/mod" "${cache_root}/build" "${cache_root}/tmp"
