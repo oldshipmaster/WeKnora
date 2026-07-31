@@ -107,3 +107,26 @@ func TestUploadTextbookReusesDuplicateAndMapsCompletedToReady(t *testing.T) {
 	require.Equal(t, "knowledge-existing", id)
 	require.Equal(t, StatusReady, status)
 }
+
+func TestUploadManualTextbookPublishesExtractedTextWithGraphProcessing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		require.Equal(t, "publish", payload["status"])
+		require.Contains(t, payload["content"], "数一数")
+		process := payload["process_config"].(map[string]any)
+		require.Equal(t, true, process["graph_enabled"])
+		_, _ = w.Write([]byte(`{"success":true,"data":{"id":"knowledge-manual","parse_status":"pending"}}`))
+	}))
+	defer server.Close()
+
+	client := NewBootstrapClient(server.URL, server.Client())
+	client.token = "token"
+	id, status, err := client.uploadManualTextbook(context.Background(), "kb-1", ManifestEntry{
+		TargetID: "book-1", Kind: MaterialTextbook, Status: StatusFound, Title: "一年级上册",
+	}, "# 一年级上册\n\n数一数")
+	require.NoError(t, err)
+	require.Equal(t, "knowledge-manual", id)
+	require.Equal(t, StatusProcessing, status)
+}

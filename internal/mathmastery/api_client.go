@@ -25,6 +25,7 @@ type BootstrapConfig struct {
 	KnowledgeBaseName string
 	Curriculum        []byte
 	Manifest          Manifest
+	TextbookText      map[string]string
 }
 
 type BootstrapReport struct {
@@ -72,11 +73,32 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 
 	report := BootstrapReport{KnowledgeBaseID: kbID, MissingExams: []string{}}
 	uploaded := make(map[string]UploadedKnowledge)
+	existing := map[string]knowledgeRecord{}
+	if len(cfg.TextbookText) > 0 {
+		existing, err = c.listKnowledge(ctx, kbID)
+		if err != nil {
+			return report, fmt.Errorf("list existing textbook knowledge: %w", err)
+		}
+	}
 	for _, entry := range cfg.Manifest.Entries {
 		if entry.Kind == MaterialExam && entry.Status == StatusMissing {
 			report.MissingExams = append(report.MissingExams, entry.Title)
 		}
 		if entry.Kind != MaterialTextbook || entry.Status != StatusFound {
+			continue
+		}
+		if content := strings.TrimSpace(cfg.TextbookText[entry.TargetID]); content != "" {
+			if knowledge, ok := existing[entry.Title]; ok {
+				report.SkippedTextbooks++
+				uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledge.ID, Status: materialStatusFromParseStatus(knowledge.ParseStatus)}
+				continue
+			}
+			knowledgeID, status, uploadErr := c.uploadManualTextbook(ctx, kbID, entry, content)
+			if uploadErr != nil {
+				return report, uploadErr
+			}
+			report.UploadedTextbooks++
+			uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledgeID, Status: status}
 			continue
 		}
 		knowledgeID, status, duplicate, uploadErr := c.uploadTextbook(ctx, kbID, entry)
@@ -101,6 +123,27 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 		return report, fmt.Errorf("write mastery sources: %w", err)
 	}
 	return report, nil
+}
+
+type knowledgeRecord struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	ParseStatus string `json:"parse_status"`
+}
+
+func (c *BootstrapClient) listKnowledge(ctx context.Context, kbID string) (map[string]knowledgeRecord, error) {
+	var response struct {
+		Data []knowledgeRecord `json:"data"`
+	}
+	path := "/knowledge-bases/" + url.PathEscape(kbID) + "/knowledge?page=1&page_size=100"
+	if err := c.sendJSON(ctx, http.MethodGet, path, nil, &response); err != nil {
+		return nil, err
+	}
+	byTitle := make(map[string]knowledgeRecord, len(response.Data))
+	for _, knowledge := range response.Data {
+		byTitle[knowledge.Title] = knowledge
+	}
+	return byTitle, nil
 }
 
 func (c *BootstrapClient) authenticate(ctx context.Context, email, password string) error {
@@ -260,6 +303,32 @@ func (c *BootstrapClient) uploadTextbook(ctx context.Context, kbID string, entry
 		return "", "", false, errors.New("upload response did not include a knowledge ID")
 	}
 	return decoded.Data.ID, materialStatusFromParseStatus(decoded.Data.ParseStatus), duplicate, nil
+}
+
+func (c *BootstrapClient) uploadManualTextbook(ctx context.Context, kbID string, entry ManifestEntry, content string) (string, MaterialStatus, error) {
+	payload := map[string]any{
+		"title":   entry.Title,
+		"content": content,
+		"status":  "publish",
+		"channel": "api",
+		"process_config": map[string]any{
+			"graph_enabled": true,
+			"extract_config": map[string]any{
+				"enabled": true,
+			},
+		},
+	}
+	var response struct {
+		Data knowledgeRecord `json:"data"`
+	}
+	path := "/knowledge-bases/" + url.PathEscape(kbID) + "/knowledge/manual"
+	if err := c.sendJSON(ctx, http.MethodPost, path, payload, &response); err != nil {
+		return "", "", fmt.Errorf("upload extracted textbook %q: %w", entry.Title, err)
+	}
+	if response.Data.ID == "" {
+		return "", "", errors.New("manual textbook response did not include a knowledge ID")
+	}
+	return response.Data.ID, materialStatusFromParseStatus(response.Data.ParseStatus), nil
 }
 
 func materialStatusFromParseStatus(status string) MaterialStatus {

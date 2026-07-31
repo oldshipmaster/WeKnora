@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ func main() {
 	passwordEnv := flag.String("password-env", "WEKNORA_MATH_ADMIN_PASSWORD", "environment variable containing the bootstrap password")
 	manifestPath := flag.String("manifest", "/Volumes/extfastdata01/WeKnora-runtime/math-mastery/manifest.json", "material manifest path")
 	curriculumPath := flag.String("curriculum", "data/math-mastery/pep-primary-math.json", "curriculum JSON path")
+	textDir := flag.String("text-dir", "", "optional directory containing <target_id>.md extracted textbooks")
 	flag.Parse()
 
 	password := os.Getenv(*passwordEnv)
@@ -37,6 +39,19 @@ func main() {
 	if err != nil {
 		fatal(fmt.Errorf("read curriculum: %w", err))
 	}
+	textbooks := make(map[string]string)
+	if strings.TrimSpace(*textDir) != "" {
+		for _, entry := range manifest.Entries {
+			if entry.Kind != mathmastery.MaterialTextbook || entry.Status != mathmastery.StatusFound {
+				continue
+			}
+			content, readErr := os.ReadFile(filepath.Join(*textDir, entry.TargetID+".md"))
+			if readErr != nil {
+				fatal(fmt.Errorf("read extracted textbook %s: %w", entry.TargetID, readErr))
+			}
+			textbooks[entry.TargetID] = string(content)
+		}
+	}
 
 	client := &http.Client{Timeout: 2 * time.Hour}
 	report, err := mathmastery.NewBootstrapClient(*baseURL, client).Run(context.Background(), mathmastery.BootstrapConfig{
@@ -45,6 +60,7 @@ func main() {
 		KnowledgeBaseName: "人教版小学数学体系化掌握",
 		Curriculum:        curriculum,
 		Manifest:          manifest,
+		TextbookText:      textbooks,
 	})
 	if err != nil {
 		fatal(err)
