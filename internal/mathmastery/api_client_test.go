@@ -145,6 +145,71 @@ func TestSplitManualMaterialPreservesContentAndPrefersPageBoundaries(t *testing.
 	}
 }
 
+func TestBootstrapClientKeepsSplitMaterialProcessingUntilEveryPartIsReady(t *testing.T) {
+	const title = "2026春六年级下册试卷"
+	var sourceStatus string
+	var sourceKnowledgeID string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			_, _ = w.Write([]byte(`{"success":true,"token":"test-token"}`))
+		case "/api/v1/knowledge-bases":
+			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"kb-1","name":"test-kb"}]}`))
+		case "/api/v1/knowledge-bases/kb-1/knowledge":
+			_, _ = fmt.Fprintf(w, `{"success":true,"data":[
+				{"id":"part-1","title":%q,"parse_status":"completed"},
+				{"id":"part-2","title":%q,"parse_status":"finalizing"}
+			]}`, title, title+" · OCR 第2部分")
+		case "/api/v1/knowledge-bases/kb-1/math-mastery/seed":
+			_, _ = w.Write([]byte(`{"success":true}`))
+		case "/api/v1/knowledge-bases/kb-1/math-mastery/sources":
+			var body struct {
+				Sources []types.MathSourceBinding `json:"sources"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			require.Len(t, body.Sources, 1)
+			sourceStatus = body.Sources[0].Status
+			sourceKnowledgeID = body.Sources[0].KnowledgeID
+			_, _ = w.Write([]byte(`{"success":true}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := NewBootstrapClient(server.URL, server.Client()).Run(context.Background(), BootstrapConfig{
+		Email: "math@example.local", Password: "secret-pass", KnowledgeBaseName: "test-kb",
+		Curriculum: []byte(`{"nodes":[{"id":"fraction","node_type":"concept","grade":6,"term":2,"domain":"number","title":"分数"}],"edges":[]}`),
+		Manifest: Manifest{Entries: []ManifestEntry{{
+			TargetID: "exam-1", MaterialID: "material-exam", Kind: MaterialExam,
+			Status: StatusFound, Title: title, Edition: "人教版", Grade: 6, Term: 2,
+		}}},
+		MaterialText: map[string]string{"exam-1": strings.Repeat("题", manualMaterialPartRuneLimit+1)},
+	})
+	require.NoError(t, err)
+	require.Equal(t, string(StatusProcessing), sourceStatus)
+	require.Equal(t, "part-1", sourceKnowledgeID)
+}
+
+func TestAggregateMaterialPartStatusNeverReportsIncompleteMaterialReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		statuses []MaterialStatus
+		want     MaterialStatus
+	}{
+		{name: "no parts", want: StatusProcessing},
+		{name: "all ready", statuses: []MaterialStatus{StatusReady, StatusReady}, want: StatusReady},
+		{name: "one processing", statuses: []MaterialStatus{StatusReady, StatusProcessing}, want: StatusProcessing},
+		{name: "failed wins", statuses: []MaterialStatus{StatusProcessing, StatusFailed}, want: StatusFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, aggregateMaterialPartStatus(tt.statuses))
+		})
+	}
+}
+
 func TestUploadTextbookReusesDuplicateAndMapsCompletedToReady(t *testing.T) {
 	book := filepath.Join(t.TempDir(), "一年级上册.pdf")
 	require.NoError(t, os.WriteFile(book, []byte("pdf"), 0o600))

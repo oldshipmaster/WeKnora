@@ -107,12 +107,15 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 			var primary UploadedKnowledge
 			primaryFound := false
 			uploadedPart := false
+			partStatuses := make([]MaterialStatus, 0, len(parts))
 			for partIndex, part := range parts {
 				partEntry := entry
 				partEntry.Title = manualMaterialPartTitle(entry.Title, partIndex)
 				if knowledge, ok := existing[partEntry.Title]; ok {
+					status := materialStatusFromParseStatus(knowledge.ParseStatus)
+					partStatuses = append(partStatuses, status)
 					if partIndex == 0 {
-						primary = UploadedKnowledge{ID: knowledge.ID, Status: materialStatusFromParseStatus(knowledge.ParseStatus)}
+						primary = UploadedKnowledge{ID: knowledge.ID, Status: status}
 						primaryFound = true
 					}
 					continue
@@ -123,6 +126,7 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 				}
 				uploadedPart = true
 				existing[partEntry.Title] = knowledgeRecord{ID: knowledgeID, Title: partEntry.Title, ParseStatus: string(status)}
+				partStatuses = append(partStatuses, status)
 				if partIndex == 0 {
 					primary = UploadedKnowledge{ID: knowledgeID, Status: status}
 					primaryFound = true
@@ -131,6 +135,7 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 			if !primaryFound {
 				return report, fmt.Errorf("material %q did not produce a primary knowledge record", entry.Title)
 			}
+			primary.Status = aggregateMaterialPartStatus(partStatuses)
 			if uploadedPart {
 				incrementUploadedMaterial(&report, entry.Kind)
 			} else {
@@ -181,6 +186,22 @@ func manualMaterialPartTitle(title string, partIndex int) string {
 		return title
 	}
 	return fmt.Sprintf("%s · OCR 第%d部分", title, partIndex+1)
+}
+
+func aggregateMaterialPartStatus(statuses []MaterialStatus) MaterialStatus {
+	if len(statuses) == 0 {
+		return StatusProcessing
+	}
+	result := StatusReady
+	for _, status := range statuses {
+		if status == StatusFailed {
+			return StatusFailed
+		}
+		if status != StatusReady {
+			result = StatusProcessing
+		}
+	}
+	return result
 }
 
 func splitManualMaterial(content string) []string {
