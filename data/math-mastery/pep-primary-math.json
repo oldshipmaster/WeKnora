@@ -1,0 +1,1238 @@
+{
+  "version": 1,
+  "edition": "人教版",
+  "source_scope": "义务教育教科书小学数学2022年版目录结构",
+  "nodes": [
+    {
+      "id": "g1s1-counting",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "number",
+      "title": "数一数与比较",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-position",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "geometry",
+      "title": "位置",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-number-5",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "number",
+      "title": "5以内数与加减法",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-shapes",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "geometry",
+      "title": "认识立体图形",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-number-10",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "operations",
+      "title": "6-10的认识和加减法",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-number-20",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "number",
+      "title": "11-20各数的认识",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-clock",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "measurement",
+      "title": "认识钟表",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s1-carry-add",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 1,
+      "domain": "operations",
+      "title": "20以内进位加法",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-plane-shapes",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "geometry",
+      "title": "认识平面图形",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-borrow-sub",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "operations",
+      "title": "20以内退位减法",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-classify",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "statistics",
+      "title": "分类与整理",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-number-100",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "number",
+      "title": "100以内数的认识",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-rmb",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "measurement",
+      "title": "认识人民币",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-add-sub-100",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "operations",
+      "title": "100以内加减法（一）",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g1s2-patterns",
+      "node_type": "concept",
+      "grade": 1,
+      "term": 2,
+      "domain": "algebra",
+      "title": "找规律",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-length",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "measurement",
+      "title": "长度单位",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-add-sub-100",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "operations",
+      "title": "100以内加减法（二）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-angle",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "geometry",
+      "title": "角的初步认识",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-multiply-1",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "operations",
+      "title": "表内乘法（一）",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-observe",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "geometry",
+      "title": "观察物体（一）",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-multiply-2",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "operations",
+      "title": "表内乘法（二）",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-time",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "measurement",
+      "title": "认识时间",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s1-combination",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 1,
+      "domain": "application",
+      "title": "搭配（一）",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-data",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "statistics",
+      "title": "数据收集和整理",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-division-1",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "operations",
+      "title": "表内除法（一）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-motion",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "geometry",
+      "title": "图形的运动（一）",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-division-2",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "operations",
+      "title": "表内除法（二）",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-mixed",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "operations",
+      "title": "混合运算",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-remainder",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "operations",
+      "title": "有余数的除法",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-number-10000",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "number",
+      "title": "万以内数的认识",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-mass",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "measurement",
+      "title": "克和千克",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g2s2-reasoning",
+      "node_type": "concept",
+      "grade": 2,
+      "term": 2,
+      "domain": "application",
+      "title": "推理",
+      "sort_order": 9,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-time",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "measurement",
+      "title": "时、分、秒",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-measure",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "measurement",
+      "title": "测量",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-add-sub-10000",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "operations",
+      "title": "万以内加减法",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-multiple",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "number",
+      "title": "倍的认识",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-multiply",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "operations",
+      "title": "多位数乘一位数",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-rectangle",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "geometry",
+      "title": "长方形和正方形",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-fraction",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "number",
+      "title": "分数的初步认识",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s1-set",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 1,
+      "domain": "statistics",
+      "title": "集合",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-direction",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "geometry",
+      "title": "位置与方向（一）",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-division",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "operations",
+      "title": "除数是一位数的除法",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-table",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "statistics",
+      "title": "复式统计表",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-multiply",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "operations",
+      "title": "两位数乘两位数",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-area",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "measurement",
+      "title": "面积",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-calendar",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "measurement",
+      "title": "年、月、日",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-decimal",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "number",
+      "title": "小数的初步认识",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g3s2-combination",
+      "node_type": "concept",
+      "grade": 3,
+      "term": 2,
+      "domain": "application",
+      "title": "搭配（二）",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-large-number",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "number",
+      "title": "大数的认识",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-land-area",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "measurement",
+      "title": "公顷和平方千米",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-angle",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "geometry",
+      "title": "角的度量",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-multiply",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "operations",
+      "title": "三位数乘两位数",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-quadrilateral",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "geometry",
+      "title": "平行四边形和梯形",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-division",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "operations",
+      "title": "除数是两位数的除法",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-bar-chart",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "statistics",
+      "title": "条形统计图",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s1-optimization",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 1,
+      "domain": "application",
+      "title": "优化",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-four-operations",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "operations",
+      "title": "四则运算",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-observe",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "geometry",
+      "title": "观察物体（二）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-laws",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "operations",
+      "title": "运算律",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-decimal",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "number",
+      "title": "小数的意义和性质",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-triangle",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "geometry",
+      "title": "三角形",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-decimal-add-sub",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "operations",
+      "title": "小数加减法",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-motion",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "geometry",
+      "title": "图形的运动（二）",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-average-chart",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "statistics",
+      "title": "平均数与复式条形统计图",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g4s2-chicken-rabbit",
+      "node_type": "concept",
+      "grade": 4,
+      "term": 2,
+      "domain": "application",
+      "title": "鸡兔同笼",
+      "sort_order": 9,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-decimal-multiply",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "operations",
+      "title": "小数乘法",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-position",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "geometry",
+      "title": "位置（数对）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-decimal-division",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "operations",
+      "title": "小数除法",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-probability",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "statistics",
+      "title": "可能性",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-equation",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "algebra",
+      "title": "简易方程",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-polygon-area",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "geometry",
+      "title": "多边形的面积",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s1-tree-model",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 1,
+      "domain": "application",
+      "title": "植树问题",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-observe",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "geometry",
+      "title": "观察物体（三）",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-factor",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "number",
+      "title": "因数和倍数",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-cuboid",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "geometry",
+      "title": "长方体和正方体",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-fraction",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "number",
+      "title": "分数的意义和性质",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-motion",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "geometry",
+      "title": "图形的运动（三）",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-fraction-add-sub",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "operations",
+      "title": "分数加减法",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-line-chart",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "statistics",
+      "title": "折线统计图",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g5s2-defective",
+      "node_type": "concept",
+      "grade": 5,
+      "term": 2,
+      "domain": "application",
+      "title": "找次品",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-fraction-multiply",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "operations",
+      "title": "分数乘法",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-direction",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "geometry",
+      "title": "位置与方向（二）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-fraction-division",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "operations",
+      "title": "分数除法",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-ratio",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "algebra",
+      "title": "比",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-circle",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "geometry",
+      "title": "圆",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-percent",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "number",
+      "title": "百分数（一）",
+      "sort_order": 6,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-fan-chart",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "statistics",
+      "title": "扇形统计图",
+      "sort_order": 7,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s1-number-shape",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 1,
+      "domain": "application",
+      "title": "数与形",
+      "sort_order": 8,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-negative",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "number",
+      "title": "负数",
+      "sort_order": 1,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-percent",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "application",
+      "title": "百分数（二）",
+      "sort_order": 2,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-cylinder-cone",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "geometry",
+      "title": "圆柱与圆锥",
+      "sort_order": 3,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-proportion",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "algebra",
+      "title": "比例",
+      "sort_order": 4,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-pigeonhole",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "application",
+      "title": "鸽巢问题",
+      "sort_order": 5,
+      "expected_question_count": 3
+    },
+    {
+      "id": "g6s2-review",
+      "node_type": "concept",
+      "grade": 6,
+      "term": 2,
+      "domain": "application",
+      "title": "小学数学整理与复习",
+      "sort_order": 6,
+      "expected_question_count": 3
+    }
+  ],
+  "edges": [
+    {
+      "from": "g1s1-counting",
+      "to": "g1s1-number-5",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-number-5",
+      "to": "g1s1-number-10",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-number-10",
+      "to": "g1s1-number-20",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-number-20",
+      "to": "g1s1-carry-add",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-carry-add",
+      "to": "g1s2-borrow-sub",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-shapes",
+      "to": "g1s2-plane-shapes",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s1-number-20",
+      "to": "g1s2-number-100",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s2-number-100",
+      "to": "g1s2-add-sub-100",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g1s2-add-sub-100",
+      "to": "g2s1-add-sub-100",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s1-multiply-1",
+      "to": "g2s1-multiply-2",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s1-multiply-2",
+      "to": "g2s2-division-1",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s2-division-1",
+      "to": "g2s2-division-2",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s2-division-2",
+      "to": "g2s2-remainder",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s2-number-10000",
+      "to": "g3s1-add-sub-10000",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s1-multiply-2",
+      "to": "g3s1-multiply",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s1-angle",
+      "to": "g3s1-rectangle",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s1-rectangle",
+      "to": "g3s2-area",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s1-fraction",
+      "to": "g5s2-fraction",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-decimal",
+      "to": "g4s2-decimal",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-multiply",
+      "to": "g4s1-multiply",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-division",
+      "to": "g4s1-division",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-table",
+      "to": "g4s1-bar-chart",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-direction",
+      "to": "g5s1-position",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-decimal",
+      "to": "g4s2-decimal-add-sub",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-decimal-add-sub",
+      "to": "g5s1-decimal-multiply",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s1-decimal-multiply",
+      "to": "g5s1-decimal-division",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-triangle",
+      "to": "g5s1-polygon-area",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g3s2-area",
+      "to": "g5s1-polygon-area",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s1-quadrilateral",
+      "to": "g5s1-polygon-area",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-laws",
+      "to": "g5s1-equation",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s2-fraction",
+      "to": "g5s2-fraction-add-sub",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s2-fraction",
+      "to": "g6s1-fraction-multiply",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-fraction-multiply",
+      "to": "g6s1-fraction-division",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-fraction-division",
+      "to": "g6s1-ratio",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-ratio",
+      "to": "g6s1-percent",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-percent",
+      "to": "g6s2-percent",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s1-polygon-area",
+      "to": "g6s1-circle",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-circle",
+      "to": "g6s2-cylinder-cone",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-ratio",
+      "to": "g6s2-proportion",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s1-bar-chart",
+      "to": "g5s2-line-chart",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s2-line-chart",
+      "to": "g6s1-fan-chart",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g2s2-motion",
+      "to": "g4s2-motion",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-motion",
+      "to": "g5s2-motion",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g4s2-observe",
+      "to": "g5s2-observe",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g5s1-equation",
+      "to": "g6s2-proportion",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s1-number-shape",
+      "to": "g6s2-review",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s2-proportion",
+      "to": "g6s2-review",
+      "relation_type": "prerequisite",
+      "strength": 1
+    },
+    {
+      "from": "g6s2-cylinder-cone",
+      "to": "g6s2-review",
+      "relation_type": "prerequisite",
+      "strength": 1
+    }
+  ]
+}
+
