@@ -143,6 +143,36 @@ func (r *mathMasteryRepository) ListQuestions(ctx context.Context, tenantID uint
 	return questions, err
 }
 
+func (r *mathMasteryRepository) ListQuestionCounts(ctx context.Context, tenantID uint64, kbID string) (map[string]int, int, error) {
+	type nodeQuestionCount struct {
+		NodeID string
+		Count  int
+	}
+	var rows []nodeQuestionCount
+	validQuestions := func() *gorm.DB {
+		return r.db.WithContext(ctx).
+			Table("math_question_nodes AS question_nodes").
+			Joins("JOIN math_questions ON math_questions.tenant_id = question_nodes.tenant_id AND math_questions.knowledge_base_id = question_nodes.knowledge_base_id AND math_questions.id = question_nodes.question_id").
+			Where("question_nodes.tenant_id = ? AND question_nodes.knowledge_base_id = ?", tenantID, kbID)
+	}
+	err := validQuestions().
+		Select("question_nodes.node_id, COUNT(DISTINCT question_nodes.question_id) AS count").
+		Group("question_nodes.node_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		counts[row.NodeID] = row.Count
+	}
+	var total int64
+	if err := validQuestions().Distinct("question_nodes.question_id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	return counts, int(total), nil
+}
+
 func (r *mathMasteryRepository) CreateAttempt(ctx context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error {
 	attempt.TenantID = tenantID
 	attempt.KnowledgeBaseID = kbID

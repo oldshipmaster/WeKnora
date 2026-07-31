@@ -140,23 +140,26 @@ type MathMasteryAssessment struct {
 
 type MathMasteryNodeView struct {
 	MathCurriculumNode
-	Assessment MathMasteryAssessment `json:"assessment"`
-	BlockedBy  []string              `json:"blocked_by"`
+	Assessment    MathMasteryAssessment `json:"assessment"`
+	BlockedBy     []string              `json:"blocked_by"`
+	QuestionCount int                   `json:"question_count"`
 }
 
 type MathMasteryOverview struct {
-	TotalNodes      int     `json:"total_nodes"`
-	UntestedNodes   int     `json:"untested_nodes"`
-	WeakNodes       int     `json:"weak_nodes"`
-	DevelopingNodes int     `json:"developing_nodes"`
-	MasteredNodes   int     `json:"mastered_nodes"`
-	BlockedNodes    int     `json:"blocked_nodes"`
-	CoverageRate    float64 `json:"coverage_rate"`
-	MasteryRate     float64 `json:"mastery_rate"`
-	TextbooksReady  int     `json:"textbooks_ready"`
-	TextbooksTotal  int     `json:"textbooks_total"`
-	ExamsReady      int     `json:"exams_ready"`
-	ExamsTotal      int     `json:"exams_total"`
+	TotalNodes          int     `json:"total_nodes"`
+	UntestedNodes       int     `json:"untested_nodes"`
+	WeakNodes           int     `json:"weak_nodes"`
+	DevelopingNodes     int     `json:"developing_nodes"`
+	MasteredNodes       int     `json:"mastered_nodes"`
+	BlockedNodes        int     `json:"blocked_nodes"`
+	CoverageRate        float64 `json:"coverage_rate"`
+	MasteryRate         float64 `json:"mastery_rate"`
+	TextbooksReady      int     `json:"textbooks_ready"`
+	TextbooksTotal      int     `json:"textbooks_total"`
+	ExamsReady          int     `json:"exams_ready"`
+	ExamsTotal          int     `json:"exams_total"`
+	DiagnosticQuestions int     `json:"diagnostic_questions"`
+	NodesWithQuestions  int     `json:"nodes_with_questions"`
 }
 
 type MathMasteryTree struct {

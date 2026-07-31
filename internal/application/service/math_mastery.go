@@ -52,6 +52,10 @@ func (s *mathMasteryService) GetTree(ctx context.Context, kbID string) (*types.M
 	if err != nil {
 		return nil, err
 	}
+	questionCounts, diagnosticQuestions, err := s.repo.ListQuestionCounts(ctx, tenantID, kbID)
+	if err != nil {
+		return nil, err
+	}
 
 	views := make([]types.MathMasteryNodeView, 0, len(nodes))
 	assessmentByNode := make(map[string]types.MathMasteryAssessment, len(nodes))
@@ -66,6 +70,7 @@ func (s *mathMasteryService) GetTree(ctx context.Context, kbID string) (*types.M
 			MathCurriculumNode: node,
 			Assessment:         assessment,
 			BlockedBy:          []string{},
+			QuestionCount:      questionCounts[node.ID],
 		})
 	}
 
@@ -85,7 +90,7 @@ func (s *mathMasteryService) GetTree(ctx context.Context, kbID string) (*types.M
 	}
 
 	tree := &types.MathMasteryTree{Nodes: views, Edges: edges, Sources: sources}
-	tree.Overview = summarizeMathMastery(views, sources)
+	tree.Overview = summarizeMathMastery(views, sources, diagnosticQuestions)
 	return tree, nil
 }
 
@@ -188,8 +193,8 @@ func (s *mathMasteryService) SubmitResponse(ctx context.Context, kbID string, re
 	return &assessment, nil
 }
 
-func summarizeMathMastery(nodes []types.MathMasteryNodeView, sources []types.MathSourceBinding) types.MathMasteryOverview {
-	overview := types.MathMasteryOverview{TotalNodes: len(nodes)}
+func summarizeMathMastery(nodes []types.MathMasteryNodeView, sources []types.MathSourceBinding, diagnosticQuestions int) types.MathMasteryOverview {
+	overview := types.MathMasteryOverview{TotalNodes: len(nodes), DiagnosticQuestions: diagnosticQuestions}
 	for _, node := range nodes {
 		switch node.Assessment.State {
 		case types.MathMasteryUntested:
@@ -203,6 +208,9 @@ func summarizeMathMastery(nodes []types.MathMasteryNodeView, sources []types.Mat
 		}
 		if len(node.BlockedBy) > 0 {
 			overview.BlockedNodes++
+		}
+		if node.QuestionCount > 0 {
+			overview.NodesWithQuestions++
 		}
 	}
 	if overview.TotalNodes > 0 {

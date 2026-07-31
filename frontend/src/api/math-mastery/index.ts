@@ -27,6 +27,7 @@ export interface MathCurriculumNode {
 export interface MathMasteryNode extends MathCurriculumNode {
   assessment: MathMasteryAssessment
   blocked_by: string[]
+  question_count: number
 }
 
 export interface MathCurriculumEdge {
@@ -68,6 +69,8 @@ export interface MathMasteryOverview {
   textbooks_total: number
   exams_ready: number
   exams_total: number
+  diagnostic_questions: number
+  nodes_with_questions: number
 }
 
 export interface MathMasteryTree {

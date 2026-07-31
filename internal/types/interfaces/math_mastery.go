@@ -13,6 +13,7 @@ type MathMasteryRepository interface {
 	ListSources(ctx context.Context, tenantID uint64, kbID string) ([]types.MathSourceBinding, error)
 	UpsertQuestions(ctx context.Context, tenantID uint64, kbID string, questions []types.MathQuestion, links []types.MathQuestionNode) error
 	ListQuestions(ctx context.Context, tenantID uint64, kbID, nodeID string, limit int) ([]types.MathQuestion, error)
+	ListQuestionCounts(ctx context.Context, tenantID uint64, kbID string) (map[string]int, int, error)
 	CreateAttempt(ctx context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error
 	AddResponse(ctx context.Context, tenantID uint64, kbID string, response *types.MathDiagnosticResponse) error
 	ListEvidence(ctx context.Context, tenantID uint64, kbID, nodeID string) ([]types.MathMasteryEvidence, error)

@@ -9,14 +9,16 @@ import (
 )
 
 type mathMasteryRepoStub struct {
-	nodes     []types.MathCurriculumNode
-	edges     []types.MathCurriculumEdge
-	sources   []types.MathSourceBinding
-	evidence  map[string][]types.MathMasteryEvidence
-	attempts  []types.MathDiagnosticAttempt
-	responses []types.MathDiagnosticResponse
-	questions []types.MathQuestion
-	links     []types.MathQuestionNode
+	nodes          []types.MathCurriculumNode
+	edges          []types.MathCurriculumEdge
+	sources        []types.MathSourceBinding
+	evidence       map[string][]types.MathMasteryEvidence
+	attempts       []types.MathDiagnosticAttempt
+	responses      []types.MathDiagnosticResponse
+	questions      []types.MathQuestion
+	links          []types.MathQuestionNode
+	questionCounts map[string]int
+	questionTotal  int
 }
 
 func (r *mathMasteryRepoStub) UpsertCurriculum(_ context.Context, tenantID uint64, kbID string, nodes []types.MathCurriculumNode, edges []types.MathCurriculumEdge) error {
@@ -60,6 +62,14 @@ func (r *mathMasteryRepoStub) UpsertQuestions(_ context.Context, tenantID uint64
 
 func (r *mathMasteryRepoStub) ListQuestions(context.Context, uint64, string, string, int) ([]types.MathQuestion, error) {
 	return append([]types.MathQuestion(nil), r.questions...), nil
+}
+
+func (r *mathMasteryRepoStub) ListQuestionCounts(context.Context, uint64, string) (map[string]int, int, error) {
+	result := make(map[string]int, len(r.questionCounts))
+	for nodeID, count := range r.questionCounts {
+		result[nodeID] = count
+	}
+	return result, r.questionTotal, nil
 }
 
 func (r *mathMasteryRepoStub) CreateAttempt(_ context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error {
@@ -112,6 +122,8 @@ func TestMathMasteryServiceExplainsBlockedNodesAndOverview(t *testing.T) {
 		evidence: map[string][]types.MathMasteryEvidence{
 			"number-5": {{QuestionID: "q1", QuestionType: "basic", SessionID: "s1", Correct: false}},
 		},
+		questionCounts: map[string]int{"number-5": 1, "number-10": 1},
+		questionTotal:  1,
 	}
 	service := NewMathMasteryService(repo)
 
@@ -123,6 +135,10 @@ func TestMathMasteryServiceExplainsBlockedNodesAndOverview(t *testing.T) {
 	require.Equal(t, 2, tree.Overview.TotalNodes)
 	require.Equal(t, 1, tree.Overview.WeakNodes)
 	require.Equal(t, 1, tree.Overview.UntestedNodes)
+	require.Equal(t, 1, tree.Nodes[0].QuestionCount)
+	require.Equal(t, 1, tree.Nodes[1].QuestionCount)
+	require.Equal(t, 1, tree.Overview.DiagnosticQuestions)
+	require.Equal(t, 2, tree.Overview.NodesWithQuestions)
 }
 
 func TestMathMasteryServiceSubmitsResponseAndReturnsUpdatedAssessment(t *testing.T) {

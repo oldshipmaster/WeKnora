@@ -108,7 +108,8 @@ const metricItems = computed(() => {
     { label: '关键薄弱点', value: overview?.weak_nodes ?? 0, detail: `${overview?.blocked_nodes ?? 0} 个下游受阻` },
     { label: '待验证', value: overview?.untested_nodes ?? 0, detail: `${overview?.developing_nodes ?? 0} 个形成中` },
     { label: '教材素材', value: `${overview?.textbooks_ready ?? 0}/${overview?.textbooks_total || 12}`, detail: '人教版一至六年级' },
-    { label: '2026 试卷', value: `${overview?.exams_ready ?? 0}/${overview?.exams_total || 12}`, detail: '缺失时不使用旧版替代' },
+    { label: '2026 试卷', value: `${overview?.exams_ready ?? 0}/${overview?.exams_total || 12}`, detail: '资料解析进度' },
+    { label: '诊断题库', value: overview?.diagnostic_questions ?? 0, detail: `覆盖 ${overview?.nodes_with_questions ?? 0} 个知识点` },
   ]
 })
 
@@ -264,6 +265,13 @@ onMounted(loadTree)
                 <em :class="statusClass(source)">{{ sourceStatusLabels[source.status] || source.status }}</em>
               </div>
             </section>
+            <section class="drawer-section diagnostic-readiness">
+              <h4>诊断题库</h4>
+              <p v-if="selectedNode.question_count > 0">
+                已导入 {{ selectedNode.question_count }} 道可追溯题；资料优化状态不影响开始作答。
+              </p>
+              <p v-else>这个知识点暂未覆盖题目，点击开始后会再次向题库确认。</p>
+            </section>
             <MathMasteryDiagnostic
               :knowledge-base-id="props.knowledgeBaseId"
               :node="selectedNode"
@@ -282,7 +290,7 @@ onMounted(loadTree)
         <div class="material-heading">
           <div>
             <h3 id="material-title">素材完整度</h3>
-            <p>教材与指定年份试卷分别核验，旧版素材不会被自动替代。</p>
+            <p>教材与指定年份试卷分别核验；题库可用性单独统计，不受资料优化状态混淆。</p>
           </div>
           <span>{{ textbookSources.filter(source => source.status === 'ready').length }}/{{ textbookSources.length || 12 }} 册教材完成</span>
         </div>
@@ -360,7 +368,7 @@ onMounted(loadTree)
 
 .mastery-metrics {
   display: grid;
-  grid-template-columns: 1.35fr repeat(4, 1fr);
+  grid-template-columns: 1.35fr repeat(5, 1fr);
   gap: 10px;
   margin-top: 26px;
 }

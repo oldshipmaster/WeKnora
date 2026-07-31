@@ -136,6 +136,45 @@ func TestMathMasteryRepositoryUpsertsAndListsQuestionsByCurriculumNode(t *testin
 	require.JSONEq(t, `{"prompt":"计算题"}`, string(got[0].ScoringRule))
 }
 
+func TestMathMasteryRepositoryCountsImportedQuestionsByCurriculumNode(t *testing.T) {
+	repo := newMathMasteryTestRepository(t)
+	ctx := context.Background()
+	questions := []types.MathQuestion{
+		{ID: "q-1", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 1 页", QuestionType: "calculation"},
+		{ID: "q-2", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 2 页", QuestionType: "calculation"},
+		{ID: "q-3", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 3 页", QuestionType: "application"},
+	}
+	links := []types.MathQuestionNode{
+		{QuestionID: "q-1", NodeID: "number-10", IsPrimary: true, Confidence: 0.9},
+		{QuestionID: "q-2", NodeID: "number-10", IsPrimary: true, Confidence: 0.9},
+		{QuestionID: "q-3", NodeID: "number-20", IsPrimary: true, Confidence: 0.9},
+		{QuestionID: "q-1", NodeID: "number-20", IsPrimary: false, Confidence: 0.8},
+	}
+	require.NoError(t, repo.UpsertQuestions(ctx, 9, "kb-3", questions, links))
+	require.NoError(t, repo.UpsertQuestions(ctx, 10, "kb-other", questions[:1], []types.MathQuestionNode{{
+		QuestionID: "q-1", NodeID: "number-10", IsPrimary: true, Confidence: 0.9,
+	}}))
+
+	counts, total, err := repo.ListQuestionCounts(ctx, 9, "kb-3")
+	require.NoError(t, err)
+	require.Equal(t, map[string]int{"number-10": 2, "number-20": 2}, counts)
+	require.Equal(t, 3, total)
+}
+
+func TestMathMasteryRepositoryQuestionCountsIgnoreOrphanLinks(t *testing.T) {
+	repo := newMathMasteryTestRepository(t)
+	ctx := context.Background()
+	require.NoError(t, repo.db.Create(&types.MathQuestionNode{
+		TenantID: 9, KnowledgeBaseID: "kb-3", QuestionID: "missing-question", NodeID: "number-10",
+		IsPrimary: true, Confidence: 0.9,
+	}).Error)
+
+	counts, total, err := repo.ListQuestionCounts(ctx, 9, "kb-3")
+	require.NoError(t, err)
+	require.Empty(t, counts)
+	require.Zero(t, total)
+}
+
 func TestMathMasteryRepositoryKeepsTenantsAndKnowledgeBasesIsolated(t *testing.T) {
 	repo := newMathMasteryTestRepository(t)
 	ctx := context.Background()

@@ -36,6 +36,16 @@ test('uses imported questions as the readiness authority instead of source parsi
   assert.match(source, /if \(!importedQuestions\.length\)/)
 })
 
+test('exposes imported question readiness on the tree without conflating it with parse status', () => {
+  assert.match(api, /question_count:\s*number/)
+  assert.match(api, /diagnostic_questions:\s*number/)
+  assert.match(api, /nodes_with_questions:\s*number/)
+  assert.match(treeSource, /selectedNode\.question_count/)
+  assert.match(treeSource, /label:\s*'诊断题库'.*diagnostic_questions/s)
+  assert.match(treeSource, /nodes_with_questions.*知识点/s)
+  assert.match(treeSource, /资料优化状态不影响开始作答/)
+})
+
 test('makes the paper-and-parent verification workflow explicit', () => {
   assert.match(source, /请孩子先在纸上作答/)
   assert.match(source, /家长核对/)
