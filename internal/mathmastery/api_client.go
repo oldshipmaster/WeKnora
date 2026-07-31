@@ -79,16 +79,16 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 		if entry.Kind != MaterialTextbook || entry.Status != StatusFound {
 			continue
 		}
-		knowledgeID, duplicate, uploadErr := c.uploadTextbook(ctx, kbID, entry)
+		knowledgeID, status, duplicate, uploadErr := c.uploadTextbook(ctx, kbID, entry)
 		if uploadErr != nil {
 			return report, uploadErr
 		}
 		if duplicate {
 			report.SkippedTextbooks++
-			continue
+		} else {
+			report.UploadedTextbooks++
 		}
-		report.UploadedTextbooks++
-		uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledgeID, Status: StatusProcessing}
+		uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledgeID, Status: status}
 	}
 
 	if err := c.sendJSON(ctx, http.MethodPost, "/knowledge-bases/"+url.PathEscape(kbID)+"/math-mastery/seed", seed, nil); err != nil {
@@ -192,10 +192,10 @@ func (c *BootstrapClient) findOrCreateKnowledgeBase(ctx context.Context, name st
 	return created.Data.ID, nil
 }
 
-func (c *BootstrapClient) uploadTextbook(ctx context.Context, kbID string, entry ManifestEntry) (string, bool, error) {
+func (c *BootstrapClient) uploadTextbook(ctx context.Context, kbID string, entry ManifestEntry) (string, MaterialStatus, bool, error) {
 	file, err := os.Open(entry.Path)
 	if err != nil {
-		return "", false, fmt.Errorf("open textbook %q: %w", entry.Path, err)
+		return "", "", false, fmt.Errorf("open textbook %q: %w", entry.Path, err)
 	}
 	defer file.Close()
 
@@ -227,40 +227,50 @@ func (c *BootstrapClient) uploadTextbook(ctx context.Context, kbID string, entry
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint("/knowledge-bases/"+url.PathEscape(kbID)+"/knowledge/file"), reader)
 	if err != nil {
-		return "", false, err
+		return "", "", false, err
 	}
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	c.authorize(req)
 	response, err := c.http.Do(req)
 	if err != nil {
-		return "", false, fmt.Errorf("upload %q: %w", entry.Title, err)
+		return "", "", false, fmt.Errorf("upload %q: %w", entry.Title, err)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
-		return "", false, err
+		return "", "", false, err
 	}
 	if streamErr := <-writeErr; streamErr != nil {
-		return "", false, fmt.Errorf("stream %q: %w", entry.Title, streamErr)
+		return "", "", false, fmt.Errorf("stream %q: %w", entry.Title, streamErr)
 	}
-	if response.StatusCode == http.StatusConflict {
-		return "", true, nil
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", false, apiStatusError(response, body)
+	duplicate := response.StatusCode == http.StatusConflict
+	if !duplicate && (response.StatusCode < 200 || response.StatusCode >= 300) {
+		return "", "", false, apiStatusError(response, body)
 	}
 	var decoded struct {
 		Data struct {
-			ID string `json:"id"`
+			ID          string `json:"id"`
+			ParseStatus string `json:"parse_status"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return "", false, fmt.Errorf("decode upload response: %w", err)
+		return "", "", false, fmt.Errorf("decode upload response: %w", err)
 	}
 	if decoded.Data.ID == "" {
-		return "", false, errors.New("upload response did not include a knowledge ID")
+		return "", "", false, errors.New("upload response did not include a knowledge ID")
 	}
-	return decoded.Data.ID, false, nil
+	return decoded.Data.ID, materialStatusFromParseStatus(decoded.Data.ParseStatus), duplicate, nil
+}
+
+func materialStatusFromParseStatus(status string) MaterialStatus {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "completed":
+		return StatusReady
+	case "failed", "cancelled":
+		return StatusFailed
+	default:
+		return StatusProcessing
+	}
 }
 
 func (c *BootstrapClient) sendJSON(ctx context.Context, method, path string, payload, result any) error {
