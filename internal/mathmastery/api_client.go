@@ -197,7 +197,7 @@ func (c *BootstrapClient) findOrCreateKnowledgeBase(ctx context.Context, name st
 		"description": "用于判断孩子是否体系化掌握小学数学；教材负责知识证据，指定 2026 试卷负责诊断证据。",
 		"type":        "document",
 		"chunking_config": map[string]any{
-			"chunk_size": 512, "chunk_overlap": 80, "strategy": "auto", "languages": []string{"zh"},
+			"chunk_size": 1200, "chunk_overlap": 120, "strategy": "auto", "languages": []string{"zh"},
 		},
 		"embedding_model_id": "builtin-dashscope-text-embedding-v4",
 		"summary_model_id":   "builtin-dashscope-qwen37-plus",
