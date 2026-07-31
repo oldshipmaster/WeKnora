@@ -77,6 +77,21 @@ export interface MathMasteryTree {
   sources: MathSourceBinding[]
 }
 
+export interface MathDiagnosticQuestion {
+  id: string
+  source_binding_id: string
+  question_locator: string
+  answer_locator?: string
+  question_type: string
+  difficulty: number
+  extraction_confidence: number
+  scoring_rule?: {
+    prompt?: string
+    answer_hint?: string
+    [key: string]: unknown
+  }
+}
+
 interface ApiResponse<T> {
   success: boolean
   data: T
@@ -93,6 +108,14 @@ export function seedMathCurriculum(kbID: string, nodes: MathCurriculumNode[], ed
 
 export function upsertMathSources(kbID: string, sources: MathSourceBinding[]) {
   return put(`/api/v1/knowledge-bases/${kbID}/math-mastery/sources`, { sources })
+}
+
+export async function getMathDiagnosticQuestions(kbID: string, nodeID: string, limit = 5) {
+  const response = await get<ApiResponse<MathDiagnosticQuestion[]>>(
+    `/api/v1/knowledge-bases/${kbID}/math-mastery/questions`,
+    { params: { node_id: nodeID, limit } },
+  )
+  return response.data
 }
 
 export async function startMathDiagnostic(kbID: string, profileID = 'local-child', scope: Record<string, unknown> = {}) {
