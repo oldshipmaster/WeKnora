@@ -23,6 +23,9 @@ func (r *mathMasteryRepository) UpsertCurriculum(ctx context.Context, tenantID u
 		for index := range nodes {
 			nodes[index].TenantID = tenantID
 			nodes[index].KnowledgeBaseID = kbID
+			if len(nodes[index].Metadata) == 0 {
+				nodes[index].Metadata = types.JSON(`{}`)
+			}
 			if err := tx.Clauses(scopeUpsertClause()).Create(&nodes[index]).Error; err != nil {
 				return fmt.Errorf("upsert curriculum node %q: %w", nodes[index].ID, err)
 			}
@@ -62,6 +65,9 @@ func (r *mathMasteryRepository) ListCurriculum(ctx context.Context, tenantID uin
 func (r *mathMasteryRepository) UpsertSource(ctx context.Context, tenantID uint64, kbID string, source *types.MathSourceBinding) error {
 	source.TenantID = tenantID
 	source.KnowledgeBaseID = kbID
+	if len(source.Metadata) == 0 {
+		source.Metadata = types.JSON(`{}`)
+	}
 	return r.db.WithContext(ctx).Clauses(scopeUpsertClause()).Create(source).Error
 }
 
@@ -77,6 +83,9 @@ func (r *mathMasteryRepository) ListSources(ctx context.Context, tenantID uint64
 func (r *mathMasteryRepository) CreateAttempt(ctx context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error {
 	attempt.TenantID = tenantID
 	attempt.KnowledgeBaseID = kbID
+	if len(attempt.Scope) == 0 {
+		attempt.Scope = types.JSON(`{}`)
+	}
 	return r.db.WithContext(ctx).Create(attempt).Error
 }
 

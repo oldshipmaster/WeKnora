@@ -49,6 +49,7 @@ func TestMathMasteryRepositoryUpsertsAndOrdersCurriculum(t *testing.T) {
 	require.Len(t, gotEdges, 1)
 	require.Equal(t, uint64(7), gotNodes[0].TenantID)
 	require.Equal(t, "kb-1", gotNodes[0].KnowledgeBaseID)
+	require.JSONEq(t, `{}`, string(gotNodes[0].Metadata))
 }
 
 func TestMathMasteryRepositoryUpdatesSourceStatusIdempotently(t *testing.T) {
