@@ -9,18 +9,27 @@ import (
 )
 
 func AssessMastery(evidence []types.MathMasteryEvidence) types.MathMasteryAssessment {
-	unique := deduplicateEvidence(evidence)
-	if len(unique) == 0 {
+	observations := deduplicateSessionQuestionEvidence(evidence)
+	if len(observations) == 0 {
 		return types.MathMasteryAssessment{
 			State:   types.MathMasteryUntested,
 			Reasons: []string{"还没有可用于判断的诊断作答"},
 		}
 	}
+	currentEvidence := deduplicateSessionQuestionEvidence(recentSessionEvidence(evidence, 2))
+	if len(currentEvidence) == 0 {
+		return types.MathMasteryAssessment{
+			State:         types.MathMasteryUntested,
+			EvidenceCount: len(observations),
+			Reasons:       []string{"历史作答缺少诊断会话，无法判断最近两次表现"},
+		}
+	}
 
+	questionsSeen := make(map[string]struct{})
 	typesSeen := make(map[string]struct{})
 	sessions := make(map[string][]types.MathMasteryEvidence)
 	var earned, possible float64
-	for _, item := range unique {
+	for index, item := range currentEvidence {
 		weight := item.Weight
 		if weight <= 0 {
 			weight = 1
@@ -29,6 +38,11 @@ func AssessMastery(evidence []types.MathMasteryEvidence) types.MathMasteryAssess
 		if item.Correct {
 			earned += weight
 		}
+		questionID := item.QuestionID
+		if questionID == "" {
+			questionID = "anonymous-" + strconv.Itoa(index)
+		}
+		questionsSeen[questionID] = struct{}{}
 		if item.QuestionType != "" {
 			typesSeen[item.QuestionType] = struct{}{}
 		}
@@ -38,7 +52,7 @@ func AssessMastery(evidence []types.MathMasteryEvidence) types.MathMasteryAssess
 	}
 
 	score := earned / possible
-	confidence := math.Min(float64(len(unique))/3, 1)
+	confidence := math.Min(float64(len(questionsSeen))/3, 1)
 	confidence = math.Min(confidence, math.Min(float64(len(typesSeen))/2, 1))
 	confidence = math.Min(confidence, math.Min(float64(len(sessions))/2, 1))
 
@@ -46,7 +60,7 @@ func AssessMastery(evidence []types.MathMasteryEvidence) types.MathMasteryAssess
 		State:         types.MathMasteryDeveloping,
 		Score:         score,
 		Confidence:    confidence,
-		EvidenceCount: len(unique),
+		EvidenceCount: len(observations),
 	}
 
 	if score < 0.6 {
@@ -55,34 +69,54 @@ func AssessMastery(evidence []types.MathMasteryEvidence) types.MathMasteryAssess
 		return assessment
 	}
 
-	if len(unique) >= 3 && len(typesSeen) >= 2 && len(sessions) >= 2 && score >= 0.8 && stableAcrossSessions(sessions) {
+	if len(questionsSeen) >= 3 && len(typesSeen) >= 2 && len(sessions) >= 2 && score >= 0.8 && stableAcrossSessions(sessions) {
 		assessment.State = types.MathMasteryMastered
 		assessment.Confidence = 1
 		assessment.Reasons = []string{"至少三道独立题、两种题型且跨两次诊断表现稳定"}
 		return assessment
 	}
 
-	assessment.Reasons = developingReasons(len(unique), len(typesSeen), len(sessions))
+	assessment.Reasons = developingReasons(len(questionsSeen), len(typesSeen), len(sessions))
 	return assessment
 }
 
-func deduplicateEvidence(evidence []types.MathMasteryEvidence) []types.MathMasteryEvidence {
-	byQuestion := make(map[string]types.MathMasteryEvidence, len(evidence))
+func recentSessionEvidence(evidence []types.MathMasteryEvidence, limit int) []types.MathMasteryEvidence {
+	if limit <= 0 {
+		return nil
+	}
+	selected := make(map[string]struct{}, limit)
+	for index := len(evidence) - 1; index >= 0 && len(selected) < limit; index-- {
+		if evidence[index].SessionID != "" {
+			selected[evidence[index].SessionID] = struct{}{}
+		}
+	}
+	recent := make([]types.MathMasteryEvidence, 0, len(evidence))
+	for _, item := range evidence {
+		if _, ok := selected[item.SessionID]; ok {
+			recent = append(recent, item)
+		}
+	}
+	return recent
+}
+
+func deduplicateSessionQuestionEvidence(evidence []types.MathMasteryEvidence) []types.MathMasteryEvidence {
+	byObservation := make(map[string]types.MathMasteryEvidence, len(evidence))
 	order := make([]string, 0, len(evidence))
 	for index, item := range evidence {
-		key := item.QuestionID
-		if key == "" {
-			key = "anonymous-" + strconv.Itoa(index)
+		questionID := item.QuestionID
+		if questionID == "" {
+			questionID = "anonymous-" + strconv.Itoa(index)
 		}
-		if _, exists := byQuestion[key]; exists {
+		key := item.SessionID + "\x00" + questionID
+		if _, exists := byObservation[key]; exists {
 			continue
 		}
-		byQuestion[key] = item
+		byObservation[key] = item
 		order = append(order, key)
 	}
 	result := make([]types.MathMasteryEvidence, 0, len(order))
 	for _, key := range order {
-		result = append(result, byQuestion[key])
+		result = append(result, byObservation[key])
 	}
 	return result
 }
