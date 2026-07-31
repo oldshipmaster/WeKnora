@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -68,7 +69,30 @@ func (r *mathMasteryRepository) UpsertSource(ctx context.Context, tenantID uint6
 	if len(source.Metadata) == 0 {
 		source.Metadata = types.JSON(`{}`)
 	}
-	return r.db.WithContext(ctx).Clauses(scopeUpsertClause()).Create(source).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing types.MathSourceBinding
+		err := tx.Where("tenant_id = ? AND knowledge_base_id = ? AND target_id = ?", tenantID, kbID, source.TargetID).
+			Take(&existing).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("find source target %q: %w", source.TargetID, err)
+		}
+		if err == nil && existing.ID != source.ID {
+			if updateErr := tx.Model(&types.MathQuestion{}).
+				Where("tenant_id = ? AND knowledge_base_id = ? AND source_binding_id = ?", tenantID, kbID, existing.ID).
+				Update("source_binding_id", source.ID).Error; updateErr != nil {
+				return fmt.Errorf("migrate question source %q to %q: %w", existing.ID, source.ID, updateErr)
+			}
+			if updateErr := tx.Model(&types.MathSourceBinding{}).
+				Where("tenant_id = ? AND knowledge_base_id = ? AND id = ?", tenantID, kbID, existing.ID).
+				Update("id", source.ID).Error; updateErr != nil {
+				return fmt.Errorf("migrate source ID %q to %q: %w", existing.ID, source.ID, updateErr)
+			}
+		}
+		if err := tx.Clauses(scopeUpsertClause()).Create(source).Error; err != nil {
+			return fmt.Errorf("upsert source %q: %w", source.ID, err)
+		}
+		return nil
+	})
 }
 
 func (r *mathMasteryRepository) ListSources(ctx context.Context, tenantID uint64, kbID string) ([]types.MathSourceBinding, error) {

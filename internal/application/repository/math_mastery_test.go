@@ -71,6 +71,34 @@ func TestMathMasteryRepositoryUpdatesSourceStatusIdempotently(t *testing.T) {
 	require.Equal(t, "knowledge-1", sources[0].KnowledgeID)
 }
 
+func TestMathMasteryRepositoryMigratesFallbackSourceIDWhenMaterialBecomesAvailable(t *testing.T) {
+	repo := newMathMasteryTestRepository(t)
+	ctx := context.Background()
+	placeholder := &types.MathSourceBinding{
+		ID: "rj-g1-s2-exam", TargetID: "rj-g1-s2-exam", SourceType: "exam",
+		Status: "missing", Grade: 1, Term: 2, Edition: "人教版",
+	}
+	require.NoError(t, repo.UpsertSource(ctx, 8, "kb-2", placeholder))
+	require.NoError(t, repo.UpsertQuestions(ctx, 8, "kb-2", []types.MathQuestion{{
+		ID: "q-1", SourceBindingID: placeholder.ID, QuestionLocator: "PDF 第 1 页", QuestionType: "calculation",
+	}}, []types.MathQuestionNode{{QuestionID: "q-1", NodeID: "g1-add", IsPrimary: true, Confidence: 0.9}}))
+
+	material := &types.MathSourceBinding{
+		ID: "material-abc", TargetID: placeholder.TargetID, SourceType: "exam", Status: "processing",
+		KnowledgeID: "knowledge-1", Grade: 1, Term: 2, Edition: "人教版",
+	}
+	require.NoError(t, repo.UpsertSource(ctx, 8, "kb-2", material))
+
+	sources, err := repo.ListSources(ctx, 8, "kb-2")
+	require.NoError(t, err)
+	require.Len(t, sources, 1)
+	require.Equal(t, material.ID, sources[0].ID)
+	require.Equal(t, "knowledge-1", sources[0].KnowledgeID)
+	var question types.MathQuestion
+	require.NoError(t, repo.db.Where("tenant_id = ? AND knowledge_base_id = ? AND id = ?", 8, "kb-2", "q-1").First(&question).Error)
+	require.Equal(t, material.ID, question.SourceBindingID)
+}
+
 func TestMathMasteryRepositoryCreatesTraceableDiagnosticEvidence(t *testing.T) {
 	repo := newMathMasteryTestRepository(t)
 	ctx := context.Background()
