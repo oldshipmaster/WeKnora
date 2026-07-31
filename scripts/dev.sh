@@ -442,7 +442,7 @@ start_app() {
         export DB_HOST=localhost
         export DOCREADER_ADDR=localhost:50051
         export MINIO_ENDPOINT=localhost:9000
-        export REDIS_ADDR=localhost:6379
+        export REDIS_ADDR="localhost:${REDIS_PORT:-6379}"
         export MILVUS_ADDRESS=localhost:19530
         export NEO4J_URI=bolt://localhost:7687
         export QDRANT_HOST=localhost
