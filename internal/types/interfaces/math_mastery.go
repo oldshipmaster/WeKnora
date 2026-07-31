@@ -15,3 +15,11 @@ type MathMasteryRepository interface {
 	AddResponse(ctx context.Context, tenantID uint64, kbID string, response *types.MathDiagnosticResponse) error
 	ListEvidence(ctx context.Context, tenantID uint64, kbID, nodeID string) ([]types.MathMasteryEvidence, error)
 }
+
+type MathMasteryService interface {
+	SeedCurriculum(ctx context.Context, kbID string, nodes []types.MathCurriculumNode, edges []types.MathCurriculumEdge) error
+	GetTree(ctx context.Context, kbID string) (*types.MathMasteryTree, error)
+	UpsertSources(ctx context.Context, kbID string, sources []types.MathSourceBinding) error
+	StartAttempt(ctx context.Context, kbID, profileID string, scope types.JSON) (*types.MathDiagnosticAttempt, error)
+	SubmitResponse(ctx context.Context, kbID string, response types.MathDiagnosticResponse) (*types.MathMasteryAssessment, error)
+}

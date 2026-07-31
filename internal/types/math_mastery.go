@@ -137,3 +137,31 @@ type MathMasteryAssessment struct {
 	EvidenceCount int              `json:"evidence_count"`
 	Reasons       []string         `json:"reasons"`
 }
+
+type MathMasteryNodeView struct {
+	MathCurriculumNode
+	Assessment MathMasteryAssessment `json:"assessment"`
+	BlockedBy  []string              `json:"blocked_by"`
+}
+
+type MathMasteryOverview struct {
+	TotalNodes      int     `json:"total_nodes"`
+	UntestedNodes   int     `json:"untested_nodes"`
+	WeakNodes       int     `json:"weak_nodes"`
+	DevelopingNodes int     `json:"developing_nodes"`
+	MasteredNodes   int     `json:"mastered_nodes"`
+	BlockedNodes    int     `json:"blocked_nodes"`
+	CoverageRate    float64 `json:"coverage_rate"`
+	MasteryRate     float64 `json:"mastery_rate"`
+	TextbooksReady  int     `json:"textbooks_ready"`
+	TextbooksTotal  int     `json:"textbooks_total"`
+	ExamsReady      int     `json:"exams_ready"`
+	ExamsTotal      int     `json:"exams_total"`
+}
+
+type MathMasteryTree struct {
+	Overview MathMasteryOverview   `json:"overview"`
+	Nodes    []MathMasteryNodeView `json:"nodes"`
+	Edges    []MathCurriculumEdge  `json:"edges"`
+	Sources  []MathSourceBinding   `json:"sources"`
+}
