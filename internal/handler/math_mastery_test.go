@@ -18,6 +18,7 @@ type mathMasteryServiceHandlerStub struct {
 	tree       *types.MathMasteryTree
 	seeded     bool
 	assessment *types.MathMasteryAssessment
+	questions  []types.MathQuestion
 }
 
 func (s *mathMasteryServiceHandlerStub) SeedCurriculum(context.Context, string, []types.MathCurriculumNode, []types.MathCurriculumEdge) error {
@@ -29,6 +30,13 @@ func (s *mathMasteryServiceHandlerStub) GetTree(context.Context, string) (*types
 }
 func (s *mathMasteryServiceHandlerStub) UpsertSources(context.Context, string, []types.MathSourceBinding) error {
 	return nil
+}
+func (s *mathMasteryServiceHandlerStub) UpsertQuestions(_ context.Context, _ string, questions []types.MathQuestion, _ []types.MathQuestionNode) error {
+	s.questions = append([]types.MathQuestion(nil), questions...)
+	return nil
+}
+func (s *mathMasteryServiceHandlerStub) ListQuestions(context.Context, string, string, int) ([]types.MathQuestion, error) {
+	return append([]types.MathQuestion(nil), s.questions...), nil
 }
 func (s *mathMasteryServiceHandlerStub) StartAttempt(context.Context, string, string, types.JSON) (*types.MathDiagnosticAttempt, error) {
 	return &types.MathDiagnosticAttempt{ID: "attempt-1"}, nil
@@ -48,7 +56,9 @@ func newMathMasteryHandlerRouter(service *mathMasteryServiceHandlerStub) *gin.En
 	})
 	handler := NewMathMasteryHandler(service)
 	router.GET("/knowledge-bases/:id/math-mastery/tree", handler.GetTree)
+	router.GET("/knowledge-bases/:id/math-mastery/questions", handler.ListQuestions)
 	router.POST("/knowledge-bases/:id/math-mastery/seed", handler.SeedCurriculum)
+	router.PUT("/knowledge-bases/:id/math-mastery/questions", handler.UpsertQuestions)
 	router.POST("/knowledge-bases/:id/math-mastery/responses", handler.SubmitResponse)
 	return router
 }
@@ -96,4 +106,18 @@ func TestMathMasteryHandlerReturnsUpdatedAssessment(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Contains(t, response.Body.String(), `"state":"developing"`)
+}
+
+func TestMathMasteryHandlerListsImportedQuestions(t *testing.T) {
+	service := &mathMasteryServiceHandlerStub{questions: []types.MathQuestion{{
+		ID: "q1", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 3 页", QuestionType: "calculation",
+		ScoringRule: types.JSON(`{"prompt":"计算题"}`),
+	}}}
+	router := newMathMasteryHandlerRouter(service)
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb-1/math-mastery/questions?node_id=g1s1-number-5&limit=3", nil))
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"question_locator":"PDF 第 3 页"`)
 }

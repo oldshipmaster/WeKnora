@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	appErrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -60,6 +61,39 @@ func (h *MathMasteryHandler) UpsertSources(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+type upsertMathQuestionsRequest struct {
+	Questions []types.MathQuestion     `json:"questions" binding:"required"`
+	Links     []types.MathQuestionNode `json:"links" binding:"required"`
+}
+
+func (h *MathMasteryHandler) UpsertQuestions(c *gin.Context) {
+	var request upsertMathQuestionsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.Error(appErrors.NewBadRequestError("诊断题目数据不合法").WithDetails(err.Error()))
+		return
+	}
+	if err := h.service.UpsertQuestions(c.Request.Context(), secutils.SanitizeForLog(c.Param("id")), request.Questions, request.Links); err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"question_count": len(request.Questions)}})
+}
+
+func (h *MathMasteryHandler) ListQuestions(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	questions, err := h.service.ListQuestions(
+		c.Request.Context(),
+		secutils.SanitizeForLog(c.Param("id")),
+		secutils.SanitizeForLog(c.Query("node_id")),
+		limit,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": questions})
 }
 
 type startMathAttemptRequest struct {

@@ -88,6 +88,26 @@ func TestMathMasteryRepositoryCreatesTraceableDiagnosticEvidence(t *testing.T) {
 	}}, evidence)
 }
 
+func TestMathMasteryRepositoryUpsertsAndListsQuestionsByCurriculumNode(t *testing.T) {
+	repo := newMathMasteryTestRepository(t)
+	ctx := context.Background()
+	questions := []types.MathQuestion{
+		{ID: "q-hard", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 12 页 · 第 8 题", QuestionType: "application", Difficulty: 0.8, ScoringRule: types.JSON(`{"prompt":"应用题"}`)},
+		{ID: "q-basic", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 3 页 · 第 2 题", QuestionType: "calculation", Difficulty: 0.3, ScoringRule: types.JSON(`{"prompt":"计算题"}`)},
+	}
+	links := []types.MathQuestionNode{
+		{QuestionID: "q-hard", NodeID: "g1s1-number-5", IsPrimary: true, Confidence: 0.9},
+		{QuestionID: "q-basic", NodeID: "g1s1-number-5", IsPrimary: true, Confidence: 0.95},
+	}
+
+	require.NoError(t, repo.UpsertQuestions(ctx, 9, "kb-3", questions, links))
+	got, err := repo.ListQuestions(ctx, 9, "kb-3", "g1s1-number-5", 10)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	require.Equal(t, "q-basic", got[0].ID)
+	require.JSONEq(t, `{"prompt":"计算题"}`, string(got[0].ScoringRule))
+}
+
 func TestMathMasteryRepositoryKeepsTenantsAndKnowledgeBasesIsolated(t *testing.T) {
 	repo := newMathMasteryTestRepository(t)
 	ctx := context.Background()

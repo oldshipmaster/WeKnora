@@ -80,6 +80,45 @@ func (r *mathMasteryRepository) ListSources(ctx context.Context, tenantID uint64
 	return sources, err
 }
 
+func (r *mathMasteryRepository) UpsertQuestions(ctx context.Context, tenantID uint64, kbID string, questions []types.MathQuestion, links []types.MathQuestionNode) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for index := range questions {
+			questions[index].TenantID = tenantID
+			questions[index].KnowledgeBaseID = kbID
+			if len(questions[index].ScoringRule) == 0 {
+				questions[index].ScoringRule = types.JSON(`{}`)
+			}
+			if err := tx.Clauses(scopeUpsertClause()).Create(&questions[index]).Error; err != nil {
+				return fmt.Errorf("upsert math question %q: %w", questions[index].ID, err)
+			}
+		}
+		for index := range links {
+			links[index].TenantID = tenantID
+			links[index].KnowledgeBaseID = kbID
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "knowledge_base_id"}, {Name: "question_id"}, {Name: "node_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"is_primary", "confidence"}),
+			}).Create(&links[index]).Error; err != nil {
+				return fmt.Errorf("upsert math question link %q -> %q: %w", links[index].QuestionID, links[index].NodeID, err)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *mathMasteryRepository) ListQuestions(ctx context.Context, tenantID uint64, kbID, nodeID string, limit int) ([]types.MathQuestion, error) {
+	var questions []types.MathQuestion
+	err := r.db.WithContext(ctx).
+		Model(&types.MathQuestion{}).
+		Select("math_questions.*").
+		Joins("JOIN math_question_nodes AS question_nodes ON question_nodes.tenant_id = math_questions.tenant_id AND question_nodes.knowledge_base_id = math_questions.knowledge_base_id AND question_nodes.question_id = math_questions.id").
+		Where("math_questions.tenant_id = ? AND math_questions.knowledge_base_id = ? AND question_nodes.node_id = ?", tenantID, kbID, nodeID).
+		Order("math_questions.difficulty ASC, math_questions.question_locator ASC, math_questions.id ASC").
+		Limit(limit).
+		Find(&questions).Error
+	return questions, err
+}
+
 func (r *mathMasteryRepository) CreateAttempt(ctx context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error {
 	attempt.TenantID = tenantID
 	attempt.KnowledgeBaseID = kbID

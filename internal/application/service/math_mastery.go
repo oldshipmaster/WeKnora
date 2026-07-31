@@ -105,6 +105,46 @@ func (s *mathMasteryService) UpsertSources(ctx context.Context, kbID string, sou
 	return nil
 }
 
+func (s *mathMasteryService) UpsertQuestions(ctx context.Context, kbID string, questions []types.MathQuestion, links []types.MathQuestionNode) error {
+	if strings.TrimSpace(kbID) == "" || len(questions) == 0 {
+		return errors.New("knowledge base ID and diagnostic questions are required")
+	}
+	questionIDs := make(map[string]struct{}, len(questions))
+	for index := range questions {
+		question := &questions[index]
+		if strings.TrimSpace(question.ID) == "" || strings.TrimSpace(question.SourceBindingID) == "" ||
+			strings.TrimSpace(question.QuestionLocator) == "" || strings.TrimSpace(question.QuestionType) == "" {
+			return errors.New("question ID, source, locator and type are required")
+		}
+		if question.Difficulty < 0 || question.Difficulty > 1 || question.ExtractionConfidence < 0 || question.ExtractionConfidence > 1 {
+			return errors.New("question difficulty and extraction confidence must be between 0 and 1")
+		}
+		questionIDs[question.ID] = struct{}{}
+	}
+	for _, link := range links {
+		if _, ok := questionIDs[link.QuestionID]; !ok || strings.TrimSpace(link.NodeID) == "" {
+			return errors.New("every question link must reference an imported question and curriculum node")
+		}
+		if link.Confidence < 0 || link.Confidence > 1 {
+			return errors.New("question link confidence must be between 0 and 1")
+		}
+	}
+	return s.repo.UpsertQuestions(ctx, types.MustTenantIDFromContext(ctx), kbID, questions, links)
+}
+
+func (s *mathMasteryService) ListQuestions(ctx context.Context, kbID, nodeID string, limit int) ([]types.MathQuestion, error) {
+	if strings.TrimSpace(kbID) == "" || strings.TrimSpace(nodeID) == "" {
+		return nil, errors.New("knowledge base ID and curriculum node ID are required")
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	return s.repo.ListQuestions(ctx, types.MustTenantIDFromContext(ctx), kbID, nodeID, limit)
+}
+
 func (s *mathMasteryService) StartAttempt(ctx context.Context, kbID, profileID string, scope types.JSON) (*types.MathDiagnosticAttempt, error) {
 	if strings.TrimSpace(kbID) == "" || strings.TrimSpace(profileID) == "" {
 		return nil, errors.New("knowledge base ID and profile ID are required")

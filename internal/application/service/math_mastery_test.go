@@ -15,6 +15,8 @@ type mathMasteryRepoStub struct {
 	evidence  map[string][]types.MathMasteryEvidence
 	attempts  []types.MathDiagnosticAttempt
 	responses []types.MathDiagnosticResponse
+	questions []types.MathQuestion
+	links     []types.MathQuestionNode
 }
 
 func (r *mathMasteryRepoStub) UpsertCurriculum(_ context.Context, tenantID uint64, kbID string, nodes []types.MathCurriculumNode, edges []types.MathCurriculumEdge) error {
@@ -44,6 +46,20 @@ func (r *mathMasteryRepoStub) UpsertSource(_ context.Context, tenantID uint64, k
 
 func (r *mathMasteryRepoStub) ListSources(context.Context, uint64, string) ([]types.MathSourceBinding, error) {
 	return append([]types.MathSourceBinding(nil), r.sources...), nil
+}
+
+func (r *mathMasteryRepoStub) UpsertQuestions(_ context.Context, tenantID uint64, kbID string, questions []types.MathQuestion, links []types.MathQuestionNode) error {
+	for index := range questions {
+		questions[index].TenantID = tenantID
+		questions[index].KnowledgeBaseID = kbID
+	}
+	r.questions = append([]types.MathQuestion(nil), questions...)
+	r.links = append([]types.MathQuestionNode(nil), links...)
+	return nil
+}
+
+func (r *mathMasteryRepoStub) ListQuestions(context.Context, uint64, string, string, int) ([]types.MathQuestion, error) {
+	return append([]types.MathQuestion(nil), r.questions...), nil
 }
 
 func (r *mathMasteryRepoStub) CreateAttempt(_ context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error {
@@ -125,4 +141,21 @@ func TestMathMasteryServiceSubmitsResponseAndReturnsUpdatedAssessment(t *testing
 	require.NoError(t, err)
 	require.Equal(t, types.MathMasteryDeveloping, assessment.State)
 	require.Len(t, repo.responses, 1)
+}
+
+func TestMathMasteryServiceImportsTraceableQuestions(t *testing.T) {
+	repo := &mathMasteryRepoStub{evidence: map[string][]types.MathMasteryEvidence{}}
+	service := NewMathMasteryService(repo)
+	questions := []types.MathQuestion{{
+		ID: "q1", SourceBindingID: "exam-1", QuestionLocator: "PDF 第 3 页 · 第 2 题",
+		QuestionType: "calculation", Difficulty: 0.3, ExtractionConfidence: 0.9,
+	}}
+	links := []types.MathQuestionNode{{QuestionID: "q1", NodeID: "g1s1-number-5", IsPrimary: true, Confidence: 0.9}}
+
+	require.NoError(t, service.UpsertQuestions(masteryTestContext(), "kb-1", questions, links))
+	require.Len(t, repo.questions, 1)
+	require.Equal(t, uint64(42), repo.questions[0].TenantID)
+	listed, err := service.ListQuestions(masteryTestContext(), "kb-1", "g1s1-number-5", 5)
+	require.NoError(t, err)
+	require.Equal(t, "q1", listed[0].ID)
 }
