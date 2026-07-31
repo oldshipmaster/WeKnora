@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	baseURL := flag.String("base-url", "http://localhost:8080", "WeKnora backend base URL")
+	baseURL := flag.String("base-url", "http://localhost:18080", "WeKnora backend base URL")
 	email := flag.String("email", "math-master@local.weknora", "local bootstrap account email")
 	passwordEnv := flag.String("password-env", "WEKNORA_MATH_ADMIN_PASSWORD", "environment variable containing the bootstrap password")
 	manifestPath := flag.String("manifest", "/Volumes/extfastdata01/WeKnora-runtime/math-mastery/manifest.json", "material manifest path")
