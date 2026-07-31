@@ -17,6 +17,8 @@ case "${mode}" in
     export GOCACHE="${WEKNORA_GOCACHE:-/Volumes/extfastdata01/.cache/weknora-go-build}"
     export GOTMPDIR="${WEKNORA_GOTMPDIR:-/Volumes/extfastdata01/.cache/weknora-go-tmp}"
     mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+    export RETRIEVE_DRIVER="${RETRIEVE_DRIVER:-postgres}"
+    export DUCKDB_SKIP_EXTENSION_LOAD="${DUCKDB_SKIP_EXTENSION_LOAD:-1}"
     export DASHSCOPE_API_KEY
     DASHSCOPE_API_KEY="$(security find-generic-password -a oldshipmaster -s weknora-dashscope-api-key -w)"
     export SYSTEM_AES_KEY
