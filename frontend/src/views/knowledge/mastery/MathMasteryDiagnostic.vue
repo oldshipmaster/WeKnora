@@ -16,9 +16,11 @@ const props = withDefaults(defineProps<{
   node: MathMasteryNode
   sources?: MathSourceBinding[]
   enabled?: boolean
+  profileId?: string
 }>(), {
   sources: () => [],
   enabled: true,
+  profileId: 'local-child',
 })
 
 const emit = defineEmits<{
@@ -55,7 +57,7 @@ async function beginDiagnostic() {
       errorMessage.value = '这个知识点还没有可追溯诊断题，请先完成对应试卷题目导入。'
       return
     }
-    const attempt = await startMathDiagnostic(props.knowledgeBaseId, 'local-child', {
+    const attempt = await startMathDiagnostic(props.knowledgeBaseId, props.profileId, {
       node_id: props.node.id,
       question_ids: importedQuestions.map(question => question.id),
     })

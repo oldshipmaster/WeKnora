@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { MessagePlugin } from 'tdesign-vue-next'
 import {
   getMathMasteryTree,
+  type MathMasteryAssessment,
   type MathMasteryNode,
   type MathMasteryState,
   type MathMasteryTree,
   type MathSourceBinding,
 } from '@/api/math-mastery'
+import MathMasteryDiagnostic from './MathMasteryDiagnostic.vue'
 import { buildDependencyPath, collectBlockedChain, filterMasteryNodes, layoutMasteryGraph } from './mathMasteryGraph'
 
 const props = defineProps<{ knowledgeBaseId: string }>()
@@ -97,9 +98,9 @@ const selectedBlockedChain = computed(() => selectedNode.value
 const selectedSources = computed(() => selectedNode.value
   ? sources.value.filter(source => source.node_id === selectedNode.value?.id || (!source.node_id && source.grade === selectedNode.value?.grade && source.term === selectedNode.value?.term))
   : [])
+const selectedExamReady = computed(() => selectedSources.value.some(source => source.source_type === 'exam' && source.status === 'ready'))
 
 const textbookSources = computed(() => sources.value.filter(source => source.source_type === 'textbook'))
-const examSources = computed(() => sources.value.filter(source => source.source_type === 'exam'))
 
 const metricItems = computed(() => {
   const overview = tree.value?.overview
@@ -143,8 +144,9 @@ async function loadTree() {
   }
 }
 
-function explainDiagnostic() {
-  MessagePlugin.info('诊断题目将在指定的 2026 试卷素材导入后开放。掌握状态不能手工点亮。')
+async function handleDiagnosticAssessment(assessment: MathMasteryAssessment) {
+  if (selectedNode.value) selectedNode.value.assessment = assessment
+  await loadTree()
 }
 
 function statusClass(source: MathSourceBinding) {
@@ -263,9 +265,13 @@ onMounted(loadTree)
                 <em :class="statusClass(source)">{{ sourceStatusLabels[source.status] || source.status }}</em>
               </div>
             </section>
-            <t-button block theme="primary" :disabled="!examSources.some(source => source.status === 'ready')" @click="explainDiagnostic">
-              {{ examSources.some(source => source.status === 'ready') ? '开始诊断' : '诊断题库待补齐' }}
-            </t-button>
+            <MathMasteryDiagnostic
+              :knowledge-base-id="props.knowledgeBaseId"
+              :node="selectedNode"
+              :sources="selectedSources"
+              :enabled="selectedExamReady"
+              @assessment="handleDiagnosticAssessment"
+            />
           </template>
           <template v-else>
             <strong>选择一个知识点</strong>
