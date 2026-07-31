@@ -182,6 +182,25 @@ func (r *mathMasteryRepository) CreateAttempt(ctx context.Context, tenantID uint
 	return r.db.WithContext(ctx).Create(attempt).Error
 }
 
+func (r *mathMasteryRepository) GetAttempt(ctx context.Context, tenantID uint64, kbID, attemptID string) (*types.MathDiagnosticAttempt, error) {
+	var attempt types.MathDiagnosticAttempt
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND knowledge_base_id = ? AND id = ?", tenantID, kbID, attemptID).
+		Take(&attempt).Error
+	return &attempt, err
+}
+
+func (r *mathMasteryRepository) GetQuestionForNode(ctx context.Context, tenantID uint64, kbID, questionID, nodeID string) (*types.MathQuestion, error) {
+	var question types.MathQuestion
+	err := r.db.WithContext(ctx).
+		Model(&types.MathQuestion{}).
+		Select("math_questions.*").
+		Joins("JOIN math_question_nodes AS question_nodes ON question_nodes.tenant_id = math_questions.tenant_id AND question_nodes.knowledge_base_id = math_questions.knowledge_base_id AND question_nodes.question_id = math_questions.id").
+		Where("math_questions.tenant_id = ? AND math_questions.knowledge_base_id = ? AND math_questions.id = ? AND question_nodes.node_id = ?", tenantID, kbID, questionID, nodeID).
+		Take(&question).Error
+	return &question, err
+}
+
 func (r *mathMasteryRepository) AddResponse(ctx context.Context, tenantID uint64, kbID string, response *types.MathDiagnosticResponse) error {
 	response.TenantID = tenantID
 	response.KnowledgeBaseID = kbID

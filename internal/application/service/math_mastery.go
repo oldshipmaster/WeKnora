@@ -2,15 +2,18 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/mathmastery"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type mathMasteryService struct {
@@ -171,17 +174,43 @@ func (s *mathMasteryService) StartAttempt(ctx context.Context, kbID, profileID s
 }
 
 func (s *mathMasteryService) SubmitResponse(ctx context.Context, kbID string, response types.MathDiagnosticResponse) (*types.MathMasteryAssessment, error) {
-	if strings.TrimSpace(kbID) == "" || response.AttemptID == "" || response.QuestionID == "" || response.NodeID == "" || response.QuestionType == "" {
-		return nil, errors.New("knowledge base, attempt, question, node and question type are required")
+	if strings.TrimSpace(kbID) == "" || response.AttemptID == "" || response.QuestionID == "" || response.NodeID == "" {
+		return nil, errors.New("knowledge base, attempt, question and node are required")
 	}
+	tenantID := types.MustTenantIDFromContext(ctx)
+	attempt, err := s.repo.GetAttempt(ctx, tenantID, kbID, response.AttemptID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, werrors.NewBadRequestError("诊断尝试不存在或不属于当前知识库")
+		}
+		return nil, fmt.Errorf("load diagnostic attempt: %w", err)
+	}
+	if attempt.Status != "active" {
+		return nil, werrors.NewBadRequestError("诊断尝试已结束，不能继续记录作答")
+	}
+	var scope struct {
+		NodeID      string   `json:"node_id"`
+		QuestionIDs []string `json:"question_ids"`
+	}
+	if err := json.Unmarshal(attempt.Scope, &scope); err != nil || scope.NodeID == "" || len(scope.QuestionIDs) == 0 {
+		return nil, werrors.NewBadRequestError("诊断尝试缺少可验证的题目范围")
+	}
+	if scope.NodeID != response.NodeID || !containsMathDiagnosticQuestion(scope.QuestionIDs, response.QuestionID) {
+		return nil, werrors.NewBadRequestError("作答题目不属于本次诊断范围")
+	}
+	question, err := s.repo.GetQuestionForNode(ctx, tenantID, kbID, response.QuestionID, response.NodeID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, werrors.NewBadRequestError("题目未绑定到指定知识点")
+		}
+		return nil, fmt.Errorf("load diagnostic question: %w", err)
+	}
+	response.QuestionType = question.QuestionType
+	response.Weight = 1
 	if response.ID == "" {
 		response.ID = uuid.NewString()
 	}
-	if response.Weight <= 0 {
-		response.Weight = 1
-	}
 	response.CreatedAt = time.Now()
-	tenantID := types.MustTenantIDFromContext(ctx)
 	if err := s.repo.AddResponse(ctx, tenantID, kbID, &response); err != nil {
 		return nil, err
 	}
@@ -191,6 +220,15 @@ func (s *mathMasteryService) SubmitResponse(ctx context.Context, kbID string, re
 	}
 	assessment := mathmastery.AssessMastery(evidence)
 	return &assessment, nil
+}
+
+func containsMathDiagnosticQuestion(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func summarizeMathMastery(nodes []types.MathMasteryNodeView, sources []types.MathSourceBinding, diagnosticQuestions int) types.MathMasteryOverview {

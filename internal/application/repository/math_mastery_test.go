@@ -116,6 +116,31 @@ func TestMathMasteryRepositoryCreatesTraceableDiagnosticEvidence(t *testing.T) {
 	}}, evidence)
 }
 
+func TestMathMasteryRepositoryResolvesAttemptAndQuestionWithinTenantKnowledgeBaseAndNode(t *testing.T) {
+	repo := newMathMasteryTestRepository(t)
+	ctx := context.Background()
+	attempt := &types.MathDiagnosticAttempt{
+		ID: "session-1", ProfileID: "local-child", Status: "active",
+		Scope: types.JSON(`{"node_id":"number-5","question_ids":["q1"]}`),
+	}
+	require.NoError(t, repo.CreateAttempt(ctx, 9, "kb-3", attempt))
+	require.NoError(t, repo.UpsertQuestions(ctx, 9, "kb-3", []types.MathQuestion{{
+		ID: "q1", QuestionLocator: "PDF 第 3 页", QuestionType: "calculation",
+	}}, []types.MathQuestionNode{{QuestionID: "q1", NodeID: "number-5", IsPrimary: true}}))
+
+	gotAttempt, err := repo.GetAttempt(ctx, 9, "kb-3", "session-1")
+	require.NoError(t, err)
+	require.Equal(t, "local-child", gotAttempt.ProfileID)
+	gotQuestion, err := repo.GetQuestionForNode(ctx, 9, "kb-3", "q1", "number-5")
+	require.NoError(t, err)
+	require.Equal(t, "calculation", gotQuestion.QuestionType)
+
+	_, err = repo.GetAttempt(ctx, 10, "kb-3", "session-1")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = repo.GetQuestionForNode(ctx, 9, "kb-3", "q1", "number-10")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
 func TestMathMasteryRepositoryUpsertsAndListsQuestionsByCurriculumNode(t *testing.T) {
 	repo := newMathMasteryTestRepository(t)
 	ctx := context.Background()

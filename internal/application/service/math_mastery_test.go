@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -79,6 +80,36 @@ func (r *mathMasteryRepoStub) CreateAttempt(_ context.Context, tenantID uint64, 
 	return nil
 }
 
+func (r *mathMasteryRepoStub) GetAttempt(_ context.Context, tenantID uint64, kbID, attemptID string) (*types.MathDiagnosticAttempt, error) {
+	for index := range r.attempts {
+		attempt := &r.attempts[index]
+		if attempt.TenantID == tenantID && attempt.KnowledgeBaseID == kbID && attempt.ID == attemptID {
+			copy := *attempt
+			return &copy, nil
+		}
+	}
+	return nil, errors.New("attempt not found")
+}
+
+func (r *mathMasteryRepoStub) GetQuestionForNode(_ context.Context, tenantID uint64, kbID, questionID, nodeID string) (*types.MathQuestion, error) {
+	linked := false
+	for _, link := range r.links {
+		if link.QuestionID == questionID && link.NodeID == nodeID {
+			linked = true
+			break
+		}
+	}
+	if linked {
+		for _, question := range r.questions {
+			if question.ID == questionID && (question.TenantID == 0 || question.TenantID == tenantID) && (question.KnowledgeBaseID == "" || question.KnowledgeBaseID == kbID) {
+				copy := question
+				return &copy, nil
+			}
+		}
+	}
+	return nil, errors.New("question not found for node")
+}
+
 func (r *mathMasteryRepoStub) AddResponse(_ context.Context, tenantID uint64, kbID string, response *types.MathDiagnosticResponse) error {
 	response.TenantID = tenantID
 	response.KnowledgeBaseID = kbID
@@ -143,12 +174,14 @@ func TestMathMasteryServiceExplainsBlockedNodesAndOverview(t *testing.T) {
 
 func TestMathMasteryServiceSubmitsResponseAndReturnsUpdatedAssessment(t *testing.T) {
 	repo := &mathMasteryRepoStub{
-		nodes:    []types.MathCurriculumNode{{ID: "number-5", Grade: 1, Term: 1, Domain: "number", Title: "5以内数"}},
-		evidence: map[string][]types.MathMasteryEvidence{},
+		nodes:     []types.MathCurriculumNode{{ID: "number-5", Grade: 1, Term: 1, Domain: "number", Title: "5以内数"}},
+		evidence:  map[string][]types.MathMasteryEvidence{},
+		questions: []types.MathQuestion{{ID: "q1", QuestionType: "basic"}},
+		links:     []types.MathQuestionNode{{QuestionID: "q1", NodeID: "number-5"}},
 	}
 	service := NewMathMasteryService(repo)
 
-	attempt, err := service.StartAttempt(masteryTestContext(), "kb-1", "local-child", nil)
+	attempt, err := service.StartAttempt(masteryTestContext(), "kb-1", "local-child", types.JSON(`{"node_id":"number-5","question_ids":["q1"]}`))
 	require.NoError(t, err)
 	require.NotEmpty(t, attempt.ID)
 	assessment, err := service.SubmitResponse(masteryTestContext(), "kb-1", types.MathDiagnosticResponse{
@@ -157,6 +190,47 @@ func TestMathMasteryServiceSubmitsResponseAndReturnsUpdatedAssessment(t *testing
 	require.NoError(t, err)
 	require.Equal(t, types.MathMasteryDeveloping, assessment.State)
 	require.Len(t, repo.responses, 1)
+}
+
+func TestMathMasteryServiceRejectsResponseOutsideAttemptScope(t *testing.T) {
+	repo := &mathMasteryRepoStub{
+		evidence: map[string][]types.MathMasteryEvidence{},
+		attempts: []types.MathDiagnosticAttempt{{
+			ID: "attempt-1", TenantID: 42, KnowledgeBaseID: "kb-1", Status: "active",
+			Scope: types.JSON(`{"node_id":"number-5","question_ids":["q1"]}`),
+		}},
+		questions: []types.MathQuestion{{ID: "q2", QuestionType: "choice"}},
+		links:     []types.MathQuestionNode{{QuestionID: "q2", NodeID: "number-5"}},
+	}
+	service := NewMathMasteryService(repo)
+
+	_, err := service.SubmitResponse(masteryTestContext(), "kb-1", types.MathDiagnosticResponse{
+		AttemptID: "attempt-1", QuestionID: "q2", NodeID: "number-5", QuestionType: "choice", Correct: true,
+	})
+	require.Error(t, err)
+	require.Empty(t, repo.responses)
+}
+
+func TestMathMasteryServiceUsesCanonicalQuestionMetadataForEvidence(t *testing.T) {
+	repo := &mathMasteryRepoStub{
+		evidence: map[string][]types.MathMasteryEvidence{},
+		attempts: []types.MathDiagnosticAttempt{{
+			ID: "attempt-1", TenantID: 42, KnowledgeBaseID: "kb-1", Status: "active",
+			Scope: types.JSON(`{"node_id":"number-5","question_ids":["q1"]}`),
+		}},
+		questions: []types.MathQuestion{{ID: "q1", QuestionType: "calculation"}},
+		links:     []types.MathQuestionNode{{QuestionID: "q1", NodeID: "number-5"}},
+	}
+	service := NewMathMasteryService(repo)
+
+	_, err := service.SubmitResponse(masteryTestContext(), "kb-1", types.MathDiagnosticResponse{
+		AttemptID: "attempt-1", QuestionID: "q1", NodeID: "number-5",
+		QuestionType: "forged-type", Weight: 999, Correct: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, repo.responses, 1)
+	require.Equal(t, "calculation", repo.responses[0].QuestionType)
+	require.Equal(t, float64(1), repo.responses[0].Weight)
 }
 
 func TestMathMasteryServiceImportsTraceableQuestions(t *testing.T) {

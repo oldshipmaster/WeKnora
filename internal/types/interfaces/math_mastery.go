@@ -15,6 +15,8 @@ type MathMasteryRepository interface {
 	ListQuestions(ctx context.Context, tenantID uint64, kbID, nodeID string, limit int) ([]types.MathQuestion, error)
 	ListQuestionCounts(ctx context.Context, tenantID uint64, kbID string) (map[string]int, int, error)
 	CreateAttempt(ctx context.Context, tenantID uint64, kbID string, attempt *types.MathDiagnosticAttempt) error
+	GetAttempt(ctx context.Context, tenantID uint64, kbID, attemptID string) (*types.MathDiagnosticAttempt, error)
+	GetQuestionForNode(ctx context.Context, tenantID uint64, kbID, questionID, nodeID string) (*types.MathQuestion, error)
 	AddResponse(ctx context.Context, tenantID uint64, kbID string, response *types.MathDiagnosticResponse) error
 	ListEvidence(ctx context.Context, tenantID uint64, kbID, nodeID string) ([]types.MathMasteryEvidence, error)
 }
