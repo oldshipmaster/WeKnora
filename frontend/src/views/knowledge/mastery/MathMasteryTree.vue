@@ -144,8 +144,10 @@ async function loadTree() {
   }
 }
 
-async function handleDiagnosticAssessment(assessment: MathMasteryAssessment) {
-  if (selectedNode.value) selectedNode.value.assessment = assessment
+async function handleDiagnosticAssessment(assessment: MathMasteryAssessment, completed: boolean, nodeID: string) {
+  const assessedNode = nodes.value.find(node => node.id === nodeID)
+  if (assessedNode) assessedNode.assessment = assessment
+  if (!completed) return
   await loadTree()
 }
 

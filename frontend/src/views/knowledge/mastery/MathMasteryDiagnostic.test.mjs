@@ -27,6 +27,31 @@ test('is reachable from the production mastery tree and refreshes assessment sta
   assert.doesNotMatch(treeSource, /explainDiagnostic/)
 })
 
+test('keeps the diagnostic mounted until the complete question set is answered', () => {
+  assert.match(source, /const completed = submittedQuestionIndex >= submittedQuestionCount - 1/)
+  assert.match(source, /emit\('assessment', assessment, completed, nodeID\)/)
+  assert.match(treeSource, /handleDiagnosticAssessment\(assessment: MathMasteryAssessment, completed: boolean, nodeID: string\)/)
+  assert.match(treeSource, /if \(!completed\) return\s+await loadTree\(\)/)
+})
+
+test('ignores stale diagnostic requests after switching knowledge nodes', () => {
+  assert.match(source, /const diagnosticGeneration = ref\(0\)/)
+  assert.match(source, /const generation = \+\+diagnosticGeneration\.value/)
+  assert.match(source, /const nodeID = props\.node\.id/)
+  assert.match(source, /if \(generation !== diagnosticGeneration\.value\) return/)
+  assert.match(source, /const submittedQuestionIndex = questionIndex\.value/)
+  assert.match(source, /const submittedQuestionCount = questions\.value\.length/)
+  assert.match(source, /emit\('assessment', assessment, completed, nodeID\)/)
+  assert.match(treeSource, /handleDiagnosticAssessment\(assessment: MathMasteryAssessment, completed: boolean, nodeID: string\)/)
+  assert.match(treeSource, /nodes\.value\.find\(node => node\.id === nodeID\)/)
+})
+
+test('invalidates pending requests when the diagnostic is unmounted or changes knowledge base', () => {
+  assert.match(source, /import \{ computed, onBeforeUnmount, ref, watch \} from 'vue'/)
+  assert.match(source, /watch\(\(\) => \[props\.knowledgeBaseId, props\.node\.id\], reset\)/)
+  assert.match(source, /onBeforeUnmount\(\(\) => \{\s*diagnosticGeneration\.value \+= 1\s*\}\)/)
+})
+
 test('uses imported questions as the readiness authority instead of source parsing status', () => {
   assert.doesNotMatch(treeSource, /selectedExamReady/)
   assert.doesNotMatch(treeSource, /:enabled=/)

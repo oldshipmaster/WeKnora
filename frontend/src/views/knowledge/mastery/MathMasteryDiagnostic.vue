@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import {
   getMathDiagnosticQuestions,
@@ -22,84 +22,111 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  assessment: [assessment: MathMasteryAssessment]
+  assessment: [assessment: MathMasteryAssessment, completed: boolean, nodeID: string]
 }>()
 
 const questions = ref<MathDiagnosticQuestion[]>([])
 const questionIndex = ref(0)
 const attemptID = ref('')
+const activeNodeID = ref('')
 const startedAt = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
 const active = ref(false)
 const errorMessage = ref('')
+const diagnosticGeneration = ref(0)
 
 const currentQuestion = computed(() => questions.value[questionIndex.value])
 const currentSource = computed(() => props.sources.find(source => source.id === currentQuestion.value?.source_binding_id))
 
 function reset() {
+  diagnosticGeneration.value += 1
   questions.value = []
   questionIndex.value = 0
   attemptID.value = ''
+  activeNodeID.value = ''
   startedAt.value = 0
+  loading.value = false
+  submitting.value = false
   active.value = false
   errorMessage.value = ''
 }
 
 async function beginDiagnostic() {
+  const generation = ++diagnosticGeneration.value
+  const knowledgeBaseID = props.knowledgeBaseId
+  const nodeID = props.node.id
   loading.value = true
   errorMessage.value = ''
   try {
-    const importedQuestions = await getMathDiagnosticQuestions(props.knowledgeBaseId, props.node.id, 5)
+    const importedQuestions = await getMathDiagnosticQuestions(knowledgeBaseID, nodeID, 5)
+    if (generation !== diagnosticGeneration.value) return
     if (!importedQuestions.length) {
       errorMessage.value = '这个知识点还没有可追溯诊断题，请先完成对应试卷题目导入。'
       return
     }
-    const attempt = await startMathDiagnostic(props.knowledgeBaseId, props.profileId, {
-      node_id: props.node.id,
+    const attempt = await startMathDiagnostic(knowledgeBaseID, props.profileId, {
+      node_id: nodeID,
       question_ids: importedQuestions.map(question => question.id),
     })
+    if (generation !== diagnosticGeneration.value) return
     questions.value = importedQuestions
     questionIndex.value = 0
     attemptID.value = attempt.id
+    activeNodeID.value = nodeID
     startedAt.value = Date.now()
     active.value = true
   } catch (error: any) {
+    if (generation !== diagnosticGeneration.value) return
     errorMessage.value = error?.message || '诊断题加载失败，请稍后重试。'
   } finally {
-    loading.value = false
+    if (generation === diagnosticGeneration.value) loading.value = false
   }
 }
 
 async function recordAnswer(correct: boolean) {
-  if (!currentQuestion.value || !attemptID.value) return
+  const question = currentQuestion.value
+  const submittedAttemptID = attemptID.value
+  const nodeID = activeNodeID.value
+  if (!question || !submittedAttemptID || !nodeID) return
+  const generation = diagnosticGeneration.value
+  const knowledgeBaseID = props.knowledgeBaseId
+  const submittedQuestionIndex = questionIndex.value
+  const submittedQuestionCount = questions.value.length
+  const submittedStartedAt = startedAt.value
   submitting.value = true
   errorMessage.value = ''
   try {
-    const assessment = await submitMathDiagnosticResponse(props.knowledgeBaseId, {
-      attempt_id: attemptID.value,
-      question_id: currentQuestion.value.id,
-      node_id: props.node.id,
-      question_type: currentQuestion.value.question_type,
+    const assessment = await submitMathDiagnosticResponse(knowledgeBaseID, {
+      attempt_id: submittedAttemptID,
+      question_id: question.id,
+      node_id: nodeID,
+      question_type: question.question_type,
       correct,
-      duration_ms: Math.max(1, Date.now() - startedAt.value),
+      duration_ms: Math.max(1, Date.now() - submittedStartedAt),
     })
-    emit('assessment', assessment)
-    if (questionIndex.value < questions.value.length - 1) {
-      questionIndex.value += 1
+    if (generation !== diagnosticGeneration.value) return
+    const completed = submittedQuestionIndex >= submittedQuestionCount - 1
+    emit('assessment', assessment, completed, nodeID)
+    if (!completed) {
+      questionIndex.value = submittedQuestionIndex + 1
       startedAt.value = Date.now()
       return
     }
     active.value = false
     MessagePlugin.success(`本轮诊断完成，已形成 ${assessment.evidence_count} 条作答证据。`)
   } catch (error: any) {
+    if (generation !== diagnosticGeneration.value) return
     errorMessage.value = error?.message || '作答证据保存失败，请重试。'
   } finally {
-    submitting.value = false
+    if (generation === diagnosticGeneration.value) submitting.value = false
   }
 }
 
-watch(() => props.node.id, reset)
+watch(() => [props.knowledgeBaseId, props.node.id], reset)
+onBeforeUnmount(() => {
+  diagnosticGeneration.value += 1
+})
 </script>
 
 <template>
