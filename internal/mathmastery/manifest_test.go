@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -63,6 +64,51 @@ func TestScanMaterialManifestDoesNotSubstituteOlderExamEditions(t *testing.T) {
 	}
 	if entry.Status != StatusMissing {
 		t.Fatalf("2026 spring target status = %q, want %q", entry.Status, StatusMissing)
+	}
+}
+
+func TestScanMaterialManifestFindsAbbreviated2026ExamsInAdditionalRoots(t *testing.T) {
+	textbookRoot := t.TempDir()
+	examRoot := t.TempDir()
+	springDir := filepath.Join(examRoot, "26春1-6年级数学下册人教版《学霸提优大试卷》")
+	autumnDir := filepath.Join(examRoot, "数学《五星学霸》人教版 26秋")
+	if err := os.MkdirAll(springDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(autumnDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for grade := 1; grade <= 6; grade++ {
+		spring := filepath.Join(springDir, fmt.Sprintf("26春%d下人教数学学霸提优大试卷.pdf", grade))
+		if err := os.WriteFile(spring, []byte(fmt.Sprintf("spring-%d", grade)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		volumeDir := filepath.Join(autumnDir, fmt.Sprintf("26秋 %d上数学《五星学霸》（人教版）", grade))
+		if err := os.MkdirAll(volumeDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		mainBook := filepath.Join(volumeDir, fmt.Sprintf("数学主书RJ%d.pdf", grade))
+		if err := os.WriteFile(mainBook, []byte(fmt.Sprintf("autumn-%d", grade)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		answer := filepath.Join(volumeDir, fmt.Sprintf("答案详解数学RJ%d上.pdf", grade))
+		if err := os.WriteFile(answer, []byte(fmt.Sprintf("answer-%d", grade)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	manifest, err := ScanMaterialManifestWithRoots(textbookRoot, examRoot)
+	if err != nil {
+		t.Fatalf("ScanMaterialManifestWithRoots() error = %v", err)
+	}
+	if got := countEntries(manifest.Entries, MaterialExam, StatusFound); got != 12 {
+		t.Fatalf("found 2026 exam count = %d, want 12", got)
+	}
+	for _, entry := range manifest.Entries {
+		if entry.Kind == MaterialExam && strings.Contains(filepath.Base(entry.Path), "答案") {
+			t.Fatalf("exam target %s selected an answer book: %s", entry.TargetID, entry.Path)
+		}
 	}
 }
 

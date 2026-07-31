@@ -6,16 +6,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/mathmastery"
 )
 
 func main() {
 	root := flag.String("root", "/Volumes/extdownload01/ChinaTextbook", "material source root")
+	var examRoots stringListFlag
+	flag.Var(&examRoots, "exam-root", "additional exam source root (repeatable)")
 	out := flag.String("out", "-", "manifest output path, or - for stdout")
 	flag.Parse()
 
-	manifest, err := mathmastery.ScanMaterialManifest(*root)
+	manifest, err := mathmastery.ScanMaterialManifestWithRoots(*root, examRoots...)
 	if err != nil {
 		fatal(err)
 	}
@@ -38,6 +41,17 @@ func main() {
 	if err := os.WriteFile(*out, data, 0o600); err != nil {
 		fatal(fmt.Errorf("write manifest: %w", err))
 	}
+}
+
+type stringListFlag []string
+
+func (values *stringListFlag) String() string {
+	return strings.Join(*values, ",")
+}
+
+func (values *stringListFlag) Set(value string) error {
+	*values = append(*values, value)
+	return nil
 }
 
 func fatal(err error) {

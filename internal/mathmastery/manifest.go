@@ -68,23 +68,49 @@ func (m Manifest) EntryByTarget(targetID string) (ManifestEntry, bool) {
 }
 
 func ScanMaterialManifest(root string) (Manifest, error) {
+	return ScanMaterialManifestWithRoots(root)
+}
+
+// ScanMaterialManifestWithRoots scans the canonical textbook root plus optional
+// sibling roots used for edition-specific exam material. Entry paths remain
+// absolute so downstream import can consume material from any scanned root.
+func ScanMaterialManifestWithRoots(root string, additionalRoots ...string) (Manifest, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("resolve material root: %w", err)
 	}
 
-	files := make([]string, 0, 64)
-	err = filepath.WalkDir(absRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+	roots := []string{absRoot}
+	for _, root := range additionalRoots {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		resolved, resolveErr := filepath.Abs(root)
+		if resolveErr != nil {
+			return Manifest{}, fmt.Errorf("resolve additional material root %q: %w", root, resolveErr)
+		}
+		roots = append(roots, resolved)
+	}
+
+	fileSet := make(map[string]struct{}, 64)
+	for _, scanRoot := range roots {
+		walkErr := filepath.WalkDir(scanRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.Type().IsRegular() && strings.EqualFold(filepath.Ext(entry.Name()), ".pdf") {
+				fileSet[path] = struct{}{}
+			}
+			return nil
+		})
 		if walkErr != nil {
-			return walkErr
+			return Manifest{}, fmt.Errorf("scan material root %q: %w", scanRoot, walkErr)
 		}
-		if entry.Type().IsRegular() && strings.EqualFold(filepath.Ext(entry.Name()), ".pdf") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return Manifest{}, fmt.Errorf("scan material root: %w", err)
+	}
+	files := make([]string, 0, len(fileSet))
+	for path := range fileSet {
+		files = append(files, path)
 	}
 	sort.Strings(files)
 
@@ -93,8 +119,7 @@ func ScanMaterialManifest(root string) (Manifest, error) {
 		entry := target.entry
 		entry.Status = StatusMissing
 		for _, path := range files {
-			relative, relErr := filepath.Rel(absRoot, path)
-			if relErr != nil || !target.match(normalizeMaterialName(relative)) {
+			if !target.match(normalizeMaterialName(path)) {
 				continue
 			}
 			info, statErr := os.Stat(path)
@@ -158,7 +183,7 @@ func materialTargets() []materialTarget {
 					SchoolYear: 2026,
 					Season:     "spring",
 				},
-				match: examMatcher(gradeName, "下册", "学霸提优大试卷", []string{"26春", "2026春"}),
+				match: examMatcher(grade, gradeName, 2, "学霸提优大试卷", []string{"26春", "2026春"}),
 			},
 			materialTarget{
 				entry: ManifestEntry{
@@ -171,17 +196,29 @@ func materialTargets() []materialTarget {
 					SchoolYear: 2026,
 					Season:     "autumn",
 				},
-				match: examMatcher(gradeName, "上册", "五星学霸", []string{"26秋", "2026秋"}),
+				match: examMatcher(grade, gradeName, 1, "五星学霸", []string{"26秋", "2026秋"}),
 			},
 		)
 	}
 	return targets
 }
 
-func examMatcher(grade, term, series string, yearTokens []string) func(string) bool {
+func examMatcher(grade int, gradeName string, term int, series string, yearTokens []string) func(string) bool {
+	termName := map[int]string{1: "上册", 2: "下册"}[term]
+	shortTerm := map[int]string{1: "上", 2: "下"}[term]
+	shortVolume := fmt.Sprintf("%d%s", grade, shortTerm)
 	return func(path string) bool {
-		if !strings.Contains(path, grade) || !strings.Contains(path, term) ||
-			!strings.Contains(path, series) || !strings.Contains(path, "数学") ||
+		baseName := path
+		if separator := strings.LastIndex(baseName, "/"); separator >= 0 {
+			baseName = baseName[separator+1:]
+		}
+		if strings.Contains(baseName, "答案") || strings.Contains(baseName, "解析") || strings.Contains(baseName, "详解") {
+			return false
+		}
+		hasVolume := strings.Contains(path, gradeName+termName) ||
+			(strings.Contains(path, gradeName) && strings.Contains(path, termName)) ||
+			strings.Contains(path, shortVolume)
+		if !hasVolume || !strings.Contains(path, series) || !strings.Contains(path, "数学") ||
 			!strings.Contains(path, "人教") {
 			return false
 		}
