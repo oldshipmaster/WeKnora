@@ -42,6 +42,26 @@ resolve_planned_directory() {
 }
 
 external_root_resolved="$(cd "${external_root}" && pwd -P)"
+
+require_external_resolved_path() {
+    local label="$1"
+    local candidate="$2"
+    local resolved
+    if [[ "${candidate}/" == *"/../"* ]]; then
+        printf 'refusing %s path with parent traversal: %s\n' "${label}" "${candidate}" >&2
+        exit 1
+    fi
+    resolved="$(resolve_planned_directory "${candidate}")"
+    case "${resolved}" in
+        "${external_root_resolved}"/*) ;;
+        *)
+            printf 'refusing %s path that resolves outside external data root: %s -> %s\n' \
+                "${label}" "${candidate}" "${resolved}" >&2
+            exit 1
+            ;;
+    esac
+}
+
 for writable_path in \
     "${GOPATH}" "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}" \
     "${TMPDIR}" "${NPM_CONFIG_CACHE}" "${XDG_CACHE_HOME}"; do
@@ -75,11 +95,17 @@ cd "${repo_dir}"
 case "${mode}" in
   infra)
     runtime_dir="${WEKNORA_MATH_RUNTIME_DIR:-/Volumes/extfastdata01/WeKnora-runtime/math-mastery}"
+    orbstack_data_dir="${WEKNORA_ORBSTACK_DATA_DIR:-${HOME}/Library/Group Containers/HUAQ24HBR6.dev.orbstack/data}"
+    require_external_resolved_path 'math runtime' "${runtime_dir}"
+    require_external_resolved_path 'OrbStack data' "${orbstack_data_dir}"
     mkdir -p "${runtime_dir}/postgres" "${runtime_dir}/redis" "${runtime_dir}/neo4j"
     exec docker compose -f docker-compose.dev.yml -f docker-compose.math.yml --profile neo4j up -d postgres redis neo4j
     ;;
   infra-full)
     runtime_dir="${WEKNORA_MATH_RUNTIME_DIR:-/Volumes/extfastdata01/WeKnora-runtime/math-mastery}"
+    orbstack_data_dir="${WEKNORA_ORBSTACK_DATA_DIR:-${HOME}/Library/Group Containers/HUAQ24HBR6.dev.orbstack/data}"
+    require_external_resolved_path 'math runtime' "${runtime_dir}"
+    require_external_resolved_path 'OrbStack data' "${orbstack_data_dir}"
     mkdir -p "${runtime_dir}/postgres" "${runtime_dir}/redis" "${runtime_dir}/docreader" "${runtime_dir}/neo4j"
     exec docker compose -f docker-compose.dev.yml -f docker-compose.math.yml --profile neo4j up -d postgres redis docreader neo4j
     ;;

@@ -91,4 +91,42 @@ if env \
   exit 1
 fi
 
+mkdir -p "${test_root}/bin"
+cat >"${test_root}/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker invoked\n'
+EOF
+chmod +x "${test_root}/bin/docker"
+
+if env \
+  PATH="${test_root}/bin:${PATH}" \
+  WEKNORA_ORBSTACK_DATA_DIR="/Users/xingsui" \
+  bash "${test_root}/scripts/start_math_mastery_dev.sh" infra >/dev/null 2>&1; then
+  printf 'start script accepted OrbStack data on the system disk\n' >&2
+  exit 1
+fi
+
+mkdir -p "${test_root}/orbstack/data"
+if env \
+  PATH="${test_root}/bin:${PATH}" \
+  WEKNORA_ORBSTACK_DATA_DIR="${test_root}/orbstack/data" \
+  WEKNORA_MATH_RUNTIME_DIR="/Users/xingsui/WeKnora-runtime/math-mastery" \
+  bash "${test_root}/scripts/start_math_mastery_dev.sh" infra >/dev/null 2>&1; then
+  printf 'start script accepted math runtime data on the system disk\n' >&2
+  exit 1
+fi
+
+infra_output="$(
+  env \
+    PATH="${test_root}/bin:${PATH}" \
+    WEKNORA_ORBSTACK_DATA_DIR="${test_root}/orbstack/data" \
+    WEKNORA_MATH_RUNTIME_DIR="${test_root}/math-runtime" \
+    bash "${test_root}/scripts/start_math_mastery_dev.sh" infra
+)"
+if [[ "${infra_output}" != 'docker invoked' ]]; then
+  printf 'external infra startup did not invoke docker: %s\n' "${infra_output}" >&2
+  exit 1
+fi
+
 printf 'start_math_mastery_dev external runtime test: PASS\n'
