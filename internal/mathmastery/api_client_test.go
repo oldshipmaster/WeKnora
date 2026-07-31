@@ -3,6 +3,7 @@ package mathmastery
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,7 +22,7 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	seeded := false
 	sourcesWritten := false
 	questionsWritten := false
-	examUploaded := false
+	examUploadTitles := []string{}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -59,8 +60,9 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
 			process := payload["process_config"].(map[string]any)
 			require.Equal(t, false, process["graph_enabled"])
-			examUploaded = true
-			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"knowledge-exam","parse_status":"pending"}}`))
+			require.LessOrEqual(t, len([]rune(payload["content"].(string))), manualMaterialPartRuneLimit)
+			examUploadTitles = append(examUploadTitles, payload["title"].(string))
+			_, _ = fmt.Fprintf(w, `{"success":true,"data":{"id":"knowledge-exam-%d","parse_status":"pending"}}`, len(examUploadTitles))
 		case "/api/v1/knowledge-bases/kb-1/math-mastery/seed":
 			var seed CurriculumSeed
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&seed))
@@ -75,6 +77,7 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 			require.Len(t, body.Sources, 2)
 			require.Equal(t, "processing", body.Sources[0]["status"])
 			require.Equal(t, "processing", body.Sources[1]["status"])
+			require.Equal(t, "knowledge-exam-1", body.Sources[1]["knowledge_id"])
 			sourcesWritten = true
 			_, _ = w.Write([]byte(`{"success":true}`))
 		case "/api/v1/knowledge-bases/kb-1/math-mastery/questions":
@@ -110,7 +113,7 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	report, err := NewBootstrapClient(server.URL, server.Client()).Run(context.Background(), BootstrapConfig{
 		Email: "math@example.local", Password: "secret-pass", KnowledgeBaseName: "人教版小学数学体系化掌握",
 		Curriculum: curriculum, Manifest: manifest,
-		MaterialText: map[string]string{"rj-g1-s2-xueba-2026-spring": "# 2026春一年级下册试卷\n\n题目"},
+		MaterialText: map[string]string{"rj-g1-s2-xueba-2026-spring": strings.Repeat("题", manualMaterialPartRuneLimit+1)},
 		Questions: []types.MathQuestion{{
 			ID: "q-1", SourceBindingID: "material-exam", QuestionLocator: "PDF 第 1 页", QuestionType: "calculation",
 		}},
@@ -121,12 +124,25 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	require.True(t, seeded)
 	require.True(t, sourcesWritten)
 	require.True(t, questionsWritten)
-	require.True(t, examUploaded)
+	require.Equal(t, []string{"2026春一年级下册试卷", "2026春一年级下册试卷 · OCR 第2部分"}, examUploadTitles)
 	require.Equal(t, "kb-1", report.KnowledgeBaseID)
 	require.Equal(t, 1, report.UploadedTextbooks)
 	require.Equal(t, 1, report.UploadedExams)
 	require.Equal(t, 1, report.ImportedQuestions)
 	require.False(t, strings.Contains(report.KnowledgeBaseID, "test-token"))
+}
+
+func TestSplitManualMaterialPreservesContentAndPrefersPageBoundaries(t *testing.T) {
+	content := strings.Repeat("前", manualMaterialPartRuneLimit-20) + "\n## PDF 第 88 页\n" + strings.Repeat("后", 100)
+
+	parts := splitManualMaterial(content)
+
+	require.Len(t, parts, 2)
+	require.Equal(t, content, strings.Join(parts, ""))
+	require.True(t, strings.HasPrefix(parts[1], "\n## PDF 第 88 页"))
+	for _, part := range parts {
+		require.LessOrEqual(t, len([]rune(part)), manualMaterialPartRuneLimit)
+	}
 }
 
 func TestUploadTextbookReusesDuplicateAndMapsCompletedToReady(t *testing.T) {

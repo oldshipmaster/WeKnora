@@ -18,6 +18,7 @@ import (
 )
 
 const defaultMathKnowledgeBaseName = "人教版小学数学体系化掌握"
+const manualMaterialPartRuneLimit = 180000
 
 type BootstrapConfig struct {
 	Email             string
@@ -102,17 +103,40 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 			continue
 		}
 		if content := strings.TrimSpace(materialText[entry.TargetID]); content != "" {
-			if knowledge, ok := existing[entry.Title]; ok {
+			parts := splitManualMaterial(content)
+			var primary UploadedKnowledge
+			primaryFound := false
+			uploadedPart := false
+			for partIndex, part := range parts {
+				partEntry := entry
+				partEntry.Title = manualMaterialPartTitle(entry.Title, partIndex)
+				if knowledge, ok := existing[partEntry.Title]; ok {
+					if partIndex == 0 {
+						primary = UploadedKnowledge{ID: knowledge.ID, Status: materialStatusFromParseStatus(knowledge.ParseStatus)}
+						primaryFound = true
+					}
+					continue
+				}
+				knowledgeID, status, uploadErr := c.uploadManualMaterial(ctx, kbID, partEntry, part)
+				if uploadErr != nil {
+					return report, uploadErr
+				}
+				uploadedPart = true
+				existing[partEntry.Title] = knowledgeRecord{ID: knowledgeID, Title: partEntry.Title, ParseStatus: string(status)}
+				if partIndex == 0 {
+					primary = UploadedKnowledge{ID: knowledgeID, Status: status}
+					primaryFound = true
+				}
+			}
+			if !primaryFound {
+				return report, fmt.Errorf("material %q did not produce a primary knowledge record", entry.Title)
+			}
+			if uploadedPart {
+				incrementUploadedMaterial(&report, entry.Kind)
+			} else {
 				incrementSkippedMaterial(&report, entry.Kind)
-				uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledge.ID, Status: materialStatusFromParseStatus(knowledge.ParseStatus)}
-				continue
 			}
-			knowledgeID, status, uploadErr := c.uploadManualMaterial(ctx, kbID, entry, content)
-			if uploadErr != nil {
-				return report, uploadErr
-			}
-			incrementUploadedMaterial(&report, entry.Kind)
-			uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledgeID, Status: status}
+			uploaded[entry.TargetID] = primary
 			continue
 		}
 		if entry.Kind != MaterialTextbook {
@@ -150,6 +174,36 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 		report.ImportedQuestions = len(cfg.Questions)
 	}
 	return report, nil
+}
+
+func manualMaterialPartTitle(title string, partIndex int) string {
+	if partIndex == 0 {
+		return title
+	}
+	return fmt.Sprintf("%s · OCR 第%d部分", title, partIndex+1)
+}
+
+func splitManualMaterial(content string) []string {
+	runes := []rune(content)
+	if len(runes) <= manualMaterialPartRuneLimit {
+		return []string{content}
+	}
+	parts := make([]string, 0, (len(runes)/manualMaterialPartRuneLimit)+1)
+	for start := 0; start < len(runes); {
+		end := min(start+manualMaterialPartRuneLimit, len(runes))
+		if end < len(runes) {
+			candidate := string(runes[start:end])
+			if marker := strings.LastIndex(candidate, "\n## PDF 第"); marker > 0 {
+				markerRunes := len([]rune(candidate[:marker]))
+				if markerRunes >= manualMaterialPartRuneLimit/2 {
+					end = start + markerRunes
+				}
+			}
+		}
+		parts = append(parts, string(runes[start:end]))
+		start = end
+	}
+	return parts
 }
 
 func incrementUploadedMaterial(report *BootstrapReport, kind MaterialKind) {
