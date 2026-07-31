@@ -82,6 +82,16 @@ type KnowledgeBaseTaskCanceller interface {
 	) (deleted int, cancelled int, err error)
 }
 
+// KnowledgeBaseTaskQueueInspector is the optional read-only counterpart used
+// when durable work is document-keyed but its ephemeral wake-up task is scoped
+// to the whole knowledge base (Wiki ingestion). Keeping this separate from
+// TaskInspector avoids widening every lightweight backend and test double.
+type KnowledgeBaseTaskQueueInspector interface {
+	// HasQueuedTasksForKnowledgeBase reports whether any pending, scheduled,
+	// retry, or active task payload references kbID.
+	HasQueuedTasksForKnowledgeBase(ctx context.Context, kbID string) (bool, error)
+}
+
 // RuntimeTaskInspector is the optional operator surface implemented by queue
 // backends that retain inspectable task state. It is separate from
 // TaskInspector so Lite mode and light-weight tests do not need to implement

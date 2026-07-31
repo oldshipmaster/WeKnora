@@ -183,6 +183,28 @@ func (a *asynqTaskInspector) HasQueuedTasksForKnowledge(
 	return false, nil
 }
 
+// HasQueuedTasksForKnowledgeBase reports whether the Wiki queue still has a
+// wake-up task for kbID. Wiki's durable rows are keyed by knowledge ID, but the
+// Asynq trigger intentionally carries only the KB ID; Housekeeping combines
+// this signal with task_pending_ops to distinguish a large legitimate backlog
+// from a durable row whose trigger was permanently lost.
+func (a *asynqTaskInspector) HasQueuedTasksForKnowledgeBase(
+	ctx context.Context, knowledgeBaseID string,
+) (bool, error) {
+	if a == nil || a.inspector == nil || knowledgeBaseID == "" {
+		return false, nil
+	}
+	matcher := func(taskType string, payload []byte) bool {
+		return matchesWikiKnowledgeBase(taskType, payload, knowledgeBaseID)
+	}
+	for _, state := range a.cancellableTaskStates() {
+		if a.queueStateHasMatch(ctx, types.QueueWiki, state.name, state.list, matcher) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // QueueStats returns a depth snapshot for every queue this app enqueues
 // into. Read-only: it calls Inspector.GetQueueInfo per queue and maps
 // the result onto types.QueueStat, attaching static pool/weight metadata
@@ -1006,6 +1028,17 @@ func matchesKnowledge(taskType string, payload []byte, knowledgeID string) bool 
 	return probe.KnowledgeID == knowledgeID
 }
 
+func matchesWikiKnowledgeBase(taskType string, payload []byte, knowledgeBaseID string) bool {
+	if taskType != types.TypeWikiIngest || knowledgeBaseID == "" {
+		return false
+	}
+	var probe runtimeTaskPayloadProbe
+	if err := json.Unmarshal(payload, &probe); err != nil {
+		return false
+	}
+	return probe.KnowledgeBaseID == knowledgeBaseID || probe.KBID == knowledgeBaseID
+}
+
 // matchesKnowledgeBase identifies work made obsolete by deleting a knowledge
 // base. In addition to direct KB fields, clone/move payloads carry semantic KB
 // references under task-specific field names. knowledgeIDs catches tasks whose
@@ -1077,6 +1110,12 @@ func (noopTaskInspector) CancelTasksForKnowledge(
 // the housekeeping sweep's span/updated_at checks stay authoritative.
 func (noopTaskInspector) HasQueuedTasksForKnowledge(
 	ctx context.Context, knowledgeID string,
+) (bool, error) {
+	return false, nil
+}
+
+func (noopTaskInspector) HasQueuedTasksForKnowledgeBase(
+	ctx context.Context, knowledgeBaseID string,
 ) (bool, error) {
 	return false, nil
 }

@@ -84,6 +84,28 @@ func TestMatchesKnowledgePreservesPerKnowledgeAllowList(t *testing.T) {
 	}
 }
 
+func TestMatchesWikiKnowledgeBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		taskType string
+		payload  string
+		want     bool
+	}{
+		{name: "wiki ingest", taskType: types.TypeWikiIngest, payload: `{"knowledge_base_id":"kb-1"}`, want: true},
+		{name: "legacy kb field", taskType: types.TypeWikiIngest, payload: `{"kb_id":"kb-1"}`, want: true},
+		{name: "other kb", taskType: types.TypeWikiIngest, payload: `{"knowledge_base_id":"kb-2"}`},
+		{name: "other task type", taskType: types.TypeWikiFinalize, payload: `{"knowledge_base_id":"kb-1"}`},
+		{name: "malformed", taskType: types.TypeWikiIngest, payload: `{`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := matchesWikiKnowledgeBase(tt.taskType, []byte(tt.payload), "kb-1"); got != tt.want {
+				t.Fatalf("matchesWikiKnowledgeBase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCancelTasksForKnowledgeBaseRescansMutatedPages(t *testing.T) {
 	server := miniredis.RunT(t)
 	redisClient := redis.NewClient(&redis.Options{Addr: server.Addr()})

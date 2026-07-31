@@ -33,6 +33,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// durableWikiOwnershipMaxAge bounds how long a durable Wiki row can suppress
+// the generic stuck-knowledge safety net without a fresh claim. Normal Wiki
+// retry/dead-letter processing settles well inside this window; keeping a
+// finite ceiling ensures a malformed or permanently orphaned row cannot mask a
+// finalizing knowledge forever.
+const durableWikiOwnershipMaxAge = 24 * time.Hour
+
 // HousekeepingService runs background sweeps to recover stuck rows.
 type HousekeepingService struct {
 	db   *gorm.DB
@@ -110,7 +117,28 @@ func (h *HousekeepingService) Stop() {
 // single sweep without waiting for the cron tick.
 func (h *HousekeepingService) runSweep(ctx context.Context) {
 	threshold := h.staleThreshold()
-	cutoff := time.Now().Add(-threshold)
+	now := time.Now()
+	cutoff := now.Add(-threshold)
+
+	// FinalizeSubtask deliberately uses two portable guarded UPDATEs: first
+	// decrement the counter, then promote finalizing -> completed. A transient
+	// DB failure between those statements can leave the authoritative counter
+	// at zero while the status still says finalizing. That is completed work,
+	// not a stuck failure. Repair the invariant before the stale scan, and keep
+	// zero-count rows out of the failure candidates if this best-effort write
+	// itself hits another transient error; the next sweep will retry it.
+	zeroFinalizing := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+		Where("parse_status = ? AND pending_subtasks_count = 0", types.ParseStatusFinalizing).
+		Updates(map[string]interface{}{
+			"parse_status": types.ParseStatusCompleted,
+			"processed_at": now,
+			"updated_at":   now,
+		})
+	if zeroFinalizing.Error != nil {
+		logger.Warnf(ctx, "[Housekeeping] zero-subtask finalizing repair failed: %v", zeroFinalizing.Error)
+	} else if zeroFinalizing.RowsAffected > 0 {
+		logger.Infof(ctx, "[Housekeeping] promoted %d zero-subtask finalizing rows", zeroFinalizing.RowsAffected)
+	}
 
 	// Sweep A: knowledge stuck in "pending", "processing", or "finalizing".
 	//
@@ -139,6 +167,7 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	if err := h.db.WithContext(ctx).
 		Where("parse_status IN ? AND updated_at < ?",
 			[]string{types.ParseStatusPending, types.ParseStatusProcessing, types.ParseStatusFinalizing}, cutoff).
+		Where("NOT (parse_status = ? AND pending_subtasks_count = 0)", types.ParseStatusFinalizing).
 		Find(&candidates).Error; err != nil {
 		logger.Warnf(ctx, "[Housekeeping] knowledge candidate query failed: %v", err)
 		return
@@ -146,6 +175,14 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 
 	stuck := h.filterByLastSpanActivity(ctx, candidates, cutoff)
 	spanSkipped := len(candidates) - len(stuck)
+
+	// Wiki work is persisted in task_pending_ops by knowledge ID, while its
+	// ephemeral Asynq trigger is KB-scoped and therefore carries no
+	// knowledge_id for TaskInspector to match. Treat a matching durable ingest
+	// row as the authoritative owner of a finalizing knowledge. Otherwise a
+	// long-running/recovered Wiki batch can be falsely marked failed even
+	// though its pending op is claimed and actively being processed.
+	stuck, durableSkipped := h.filterOutDurableFinalizingOps(ctx, stuck)
 
 	// Second-stage gate: a row can have a stale span heartbeat yet still
 	// be perfectly healthy when its enrichment subtasks (summary /
@@ -158,23 +195,11 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	stuck, queueSkipped := h.filterOutQueued(ctx, stuck)
 
 	if len(stuck) > 0 {
-		stuckIDs := make([]string, 0, len(stuck))
-		for _, k := range stuck {
-			stuckIDs = append(stuckIDs, k.ID)
-		}
-		res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
-			Where("id IN ? AND parse_status IN ?", stuckIDs,
-				[]string{types.ParseStatusPending, types.ParseStatusProcessing, types.ParseStatusFinalizing}).
-			Updates(map[string]interface{}{
-				"parse_status":           types.ParseStatusFailed,
-				"error_message":          "task stuck in processing > " + threshold.String() + ", recovered by housekeeping",
-				"pending_subtasks_count": 0,
-			})
-		if res.Error != nil {
-			logger.Warnf(ctx, "[Housekeeping] knowledge sweep update failed: %v", res.Error)
-		} else if res.RowsAffected > 0 {
+		if recovered, err := h.markStuckKnowledgeFailed(ctx, stuck, threshold, cutoff); err != nil {
+			logger.Warnf(ctx, "[Housekeeping] knowledge sweep update failed: %v", err)
+		} else if recovered > 0 {
 			logger.Infof(ctx, "[Housekeeping] recovered %d stuck knowledge rows (threshold=%s)",
-				res.RowsAffected, threshold)
+				recovered, threshold)
 		}
 	}
 	if spanSkipped > 0 {
@@ -195,12 +220,17 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 			"[Housekeeping] %d candidate(s) skipped — tasks still queued (backpressure, not stuck)",
 			queueSkipped)
 	}
+	if durableSkipped > 0 {
+		logger.Infof(ctx,
+			"[Housekeeping] %d candidate(s) skipped — durable Wiki operations still pending",
+			durableSkipped)
+	}
 
 	// Sweep B: knowledge summary stuck. Summary is post-parse; threshold
 	// is shorter because summary tasks are bounded by a single LLM call.
 	// No span heartbeat exists for the summary stage (it lives in a
 	// downstream asynq task), so we accept the original simple check.
-	summaryCutoff := time.Now().Add(-1 * time.Hour)
+	summaryCutoff := now.Add(-1 * time.Hour)
 	resSummary := h.db.WithContext(ctx).Model(&types.Knowledge{}).
 		Where("summary_status = ? AND updated_at < ?", types.SummaryStatusProcessing, summaryCutoff).
 		Update("summary_status", types.SummaryStatusFailed)
@@ -209,6 +239,243 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	} else if resSummary.RowsAffected > 0 {
 		logger.Infof(ctx, "[Housekeeping] recovered %d stuck summary rows", resSummary.RowsAffected)
 	}
+}
+
+// markStuckKnowledgeFailed applies the final state transition with guards that
+// are re-evaluated by the database. In particular, a finalizing candidate may
+// race its last subtask between the earlier scan and this write. Once its
+// counter reaches zero it represents completed work and must not be overwritten
+// with failed; the next sweep's zero-counter repair will promote it. A refreshed
+// updated_at heartbeat likewise invalidates the stale candidate even when other
+// subtasks remain outstanding.
+func (h *HousekeepingService) markStuckKnowledgeFailed(
+	ctx context.Context, candidates []types.Knowledge, threshold time.Duration, cutoff time.Time,
+) (int64, error) {
+	primaryIDs := make([]string, 0, len(candidates))
+	finalizingIDs := make([]string, 0, len(candidates))
+	for _, knowledge := range candidates {
+		switch knowledge.ParseStatus {
+		case types.ParseStatusPending, types.ParseStatusProcessing:
+			primaryIDs = append(primaryIDs, knowledge.ID)
+		case types.ParseStatusFinalizing:
+			finalizingIDs = append(finalizingIDs, knowledge.ID)
+		}
+	}
+	values := map[string]interface{}{
+		"parse_status":           types.ParseStatusFailed,
+		"error_message":          "task stuck in processing > " + threshold.String() + ", recovered by housekeeping",
+		"pending_subtasks_count": 0,
+	}
+	var recovered int64
+	if len(primaryIDs) > 0 {
+		updatePrimary := func(guardSpanHeartbeat bool) *gorm.DB {
+			query := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+				Where("id IN ? AND parse_status IN ?", primaryIDs,
+					[]string{types.ParseStatusPending, types.ParseStatusProcessing}).
+				Where("updated_at < ?", cutoff)
+			if guardSpanHeartbeat {
+				query = withoutRecentSpanHeartbeat(query, cutoff)
+			}
+			return query.Updates(values)
+		}
+		res := updatePrimary(true)
+		if res.Error != nil && isMissingTable(res.Error, "knowledge_processing_spans") {
+			logger.Warnf(ctx,
+				"[Housekeeping] knowledge_processing_spans table unavailable; applying compatibility recovery without span guard")
+			res = updatePrimary(false)
+		}
+		if res.Error != nil {
+			return recovered, res.Error
+		}
+		recovered += res.RowsAffected
+	}
+	if len(finalizingIDs) > 0 {
+		now := time.Now()
+		updateFinalizing := func(guardSpanHeartbeat, guardDurableOwner bool) *gorm.DB {
+			query := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+				Where("id IN ? AND parse_status = ? AND pending_subtasks_count > 0",
+					finalizingIDs, types.ParseStatusFinalizing).
+				Where("updated_at < ?", cutoff)
+			if guardSpanHeartbeat {
+				query = withoutRecentSpanHeartbeat(query, cutoff)
+			}
+			if guardDurableOwner {
+				query = query.Where(`NOT EXISTS (
+				SELECT 1 FROM task_pending_ops pending
+				WHERE pending.tenant_id = knowledges.tenant_id
+					AND pending.task_type = ?
+					AND pending.scope = ?
+					AND pending.scope_id = knowledges.knowledge_base_id
+					AND pending.op = ?
+					AND pending.dedup_key = knowledges.id
+					AND (pending.enqueued_at > ? OR pending.claimed_at > ?)
+				)`, types.TypeWikiIngest, types.TaskScopeKnowledgeBase, WikiOpIngest,
+					now.Add(-durableWikiOwnershipMaxAge), now.Add(-wikiClaimStaleAfter))
+			}
+			return query.Updates(values)
+		}
+
+		guardSpanHeartbeat := true
+		guardDurableOwner := true
+		var res *gorm.DB
+		for {
+			res = updateFinalizing(guardSpanHeartbeat, guardDurableOwner)
+			if res.Error == nil {
+				break
+			}
+			if guardSpanHeartbeat && isMissingTable(res.Error, "knowledge_processing_spans") {
+				logger.Warnf(ctx,
+					"[Housekeeping] knowledge_processing_spans table unavailable; applying compatibility recovery without span guard")
+				guardSpanHeartbeat = false
+				continue
+			}
+			if guardDurableOwner && isMissingTable(res.Error, "task_pending_ops") {
+				// task_pending_ops was introduced after knowledges. During a
+				// rolling upgrade (and in Lite databases created by old versions),
+				// preserve the pre-durable-owner recovery behavior only for this
+				// explicit schema-compatibility case. Other database errors remain
+				// fatal so a transient owner-query failure cannot reopen the race.
+				logger.Warnf(ctx,
+					"[Housekeeping] task_pending_ops table unavailable; applying compatibility recovery without durable-owner guard")
+				guardDurableOwner = false
+				continue
+			}
+			break
+		}
+		if res.Error != nil {
+			return recovered, res.Error
+		}
+		recovered += res.RowsAffected
+	}
+	return recovered, nil
+}
+
+func withoutRecentSpanHeartbeat(query *gorm.DB, cutoff time.Time) *gorm.DB {
+	return query.Where(`NOT EXISTS (
+		SELECT 1 FROM knowledge_processing_spans recent_span
+		WHERE recent_span.knowledge_id = knowledges.id
+			AND recent_span.updated_at >= ?
+	)`, cutoff)
+}
+
+func isMissingTable(err error, table string) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, strings.ToLower(table)) {
+		return false
+	}
+	return strings.Contains(message, "no such table") ||
+		strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "undefined table")
+}
+
+// filterOutDurableFinalizingOps removes candidates that are still owned by a
+// durable wiki:ingest row. Redis inspection cannot make this association: the
+// Wiki trigger payload is knowledge-base scoped, while dedup_key in
+// task_pending_ops is the knowledge ID. Match all three scope dimensions so an
+// identical knowledge ID in another tenant/KB cannot protect the wrong row.
+//
+// A durable op is only authoritative for finalizing rows and only within the
+// bounded ownership window, while its claim is fresh, or while the KB-scoped
+// Wiki trigger is verifiably alive. The last condition preserves legitimate
+// >24h bulk-import backlogs without allowing a permanently triggerless row to
+// mask failure forever. Pending/processing rows belong to the primary parse
+// pipeline and must continue through the normal span + TaskInspector checks.
+// On query error we retain the candidates, matching the housekeeping sweep's
+// existing fail-safe recovery direction.
+func (h *HousekeepingService) filterOutDurableFinalizingOps(
+	ctx context.Context, candidates []types.Knowledge,
+) (kept []types.Knowledge, skipped int) {
+	if len(candidates) == 0 {
+		return candidates, 0
+	}
+
+	ids := make([]string, 0, len(candidates))
+	tenantSet := make(map[uint64]struct{})
+	scopeSet := make(map[string]struct{})
+	for _, knowledge := range candidates {
+		if knowledge.ParseStatus == types.ParseStatusFinalizing {
+			ids = append(ids, knowledge.ID)
+			tenantSet[knowledge.TenantID] = struct{}{}
+			scopeSet[knowledge.KnowledgeBaseID] = struct{}{}
+		}
+	}
+	if len(ids) == 0 {
+		return candidates, 0
+	}
+
+	type durableOwner struct {
+		TenantID   uint64     `gorm:"column:tenant_id"`
+		ScopeID    string     `gorm:"column:scope_id"`
+		DedupKey   string     `gorm:"column:dedup_key"`
+		EnqueuedAt time.Time  `gorm:"column:enqueued_at"`
+		ClaimedAt  *time.Time `gorm:"column:claimed_at"`
+	}
+	tenantIDs := make([]uint64, 0, len(tenantSet))
+	for tenantID := range tenantSet {
+		tenantIDs = append(tenantIDs, tenantID)
+	}
+	scopeIDs := make([]string, 0, len(scopeSet))
+	for scopeID := range scopeSet {
+		scopeIDs = append(scopeIDs, scopeID)
+	}
+	var owners []durableOwner
+	now := time.Now()
+	if err := h.db.WithContext(ctx).
+		Model(&types.TaskPendingOp{}).
+		Select("tenant_id, scope_id, dedup_key, enqueued_at, claimed_at").
+		Where("task_type = ? AND scope = ? AND op = ? AND tenant_id IN ? AND scope_id IN ? AND dedup_key IN ?",
+			types.TypeWikiIngest, types.TaskScopeKnowledgeBase, WikiOpIngest,
+			tenantIDs, scopeIDs, ids).
+		Find(&owners).Error; err != nil {
+		logger.Warnf(ctx,
+			"[Housekeeping] durable Wiki ownership query failed: %v (will fail safe and recover candidates)", err)
+		return candidates, 0
+	}
+
+	type ownerKey struct {
+		tenantID        uint64
+		knowledgeBaseID string
+		knowledgeID     string
+	}
+	owned := make(map[ownerKey]struct{}, len(owners))
+	kbLiveness := make(map[string]bool)
+	kbLivenessChecked := make(map[string]struct{})
+	kbInspector, canInspectKB := h.inspector.(interfaces.KnowledgeBaseTaskQueueInspector)
+	for _, owner := range owners {
+		fresh := owner.EnqueuedAt.After(now.Add(-durableWikiOwnershipMaxAge)) ||
+			(owner.ClaimedAt != nil && owner.ClaimedAt.After(now.Add(-wikiClaimStaleAfter)))
+		if !fresh && canInspectKB {
+			if _, checked := kbLivenessChecked[owner.ScopeID]; !checked {
+				live, err := kbInspector.HasQueuedTasksForKnowledgeBase(ctx, owner.ScopeID)
+				if err != nil {
+					logger.Warnf(ctx,
+						"[Housekeeping] Wiki trigger probe failed for KB %s: %v", owner.ScopeID, err)
+				}
+				kbLiveness[owner.ScopeID] = err == nil && live
+				kbLivenessChecked[owner.ScopeID] = struct{}{}
+			}
+			fresh = kbLiveness[owner.ScopeID]
+		}
+		if fresh {
+			owned[ownerKey{owner.TenantID, owner.ScopeID, owner.DedupKey}] = struct{}{}
+		}
+	}
+
+	out := candidates[:0]
+	for _, knowledge := range candidates {
+		if knowledge.ParseStatus == types.ParseStatusFinalizing {
+			key := ownerKey{knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID}
+			if _, ok := owned[key]; ok {
+				skipped++
+				continue
+			}
+		}
+		out = append(out, knowledge)
+	}
+	return out, skipped
 }
 
 // filterByLastSpanActivity returns the subset of candidates whose most
