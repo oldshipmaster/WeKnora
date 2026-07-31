@@ -27,6 +27,8 @@ type BootstrapConfig struct {
 	Manifest          Manifest
 	TextbookText      map[string]string
 	MaterialText      map[string]string
+	Questions         []types.MathQuestion
+	QuestionLinks     []types.MathQuestionNode
 }
 
 type BootstrapReport struct {
@@ -35,6 +37,7 @@ type BootstrapReport struct {
 	SkippedTextbooks  int      `json:"skipped_textbooks"`
 	UploadedExams     int      `json:"uploaded_exams"`
 	SkippedExams      int      `json:"skipped_exams"`
+	ImportedQuestions int      `json:"imported_questions"`
 	MissingExams      []string `json:"missing_exams"`
 }
 
@@ -135,6 +138,16 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 	}{Sources: BuildSourceBindings(cfg.Manifest, uploaded)}
 	if err := c.sendJSON(ctx, http.MethodPut, "/knowledge-bases/"+url.PathEscape(kbID)+"/math-mastery/sources", sources, nil); err != nil {
 		return report, fmt.Errorf("write mastery sources: %w", err)
+	}
+	if len(cfg.Questions) > 0 {
+		questions := struct {
+			Questions []types.MathQuestion     `json:"questions"`
+			Links     []types.MathQuestionNode `json:"links"`
+		}{Questions: cfg.Questions, Links: cfg.QuestionLinks}
+		if err := c.sendJSON(ctx, http.MethodPut, "/knowledge-bases/"+url.PathEscape(kbID)+"/math-mastery/questions", questions, nil); err != nil {
+			return report, fmt.Errorf("write mastery questions: %w", err)
+		}
+		report.ImportedQuestions = len(cfg.Questions)
 	}
 	return report, nil
 }

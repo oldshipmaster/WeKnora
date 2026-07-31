@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,6 +20,7 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	registered := false
 	seeded := false
 	sourcesWritten := false
+	questionsWritten := false
 	examUploaded := false
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +77,18 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 			require.Equal(t, "processing", body.Sources[1]["status"])
 			sourcesWritten = true
 			_, _ = w.Write([]byte(`{"success":true}`))
+		case "/api/v1/knowledge-bases/kb-1/math-mastery/questions":
+			var body struct {
+				Questions []types.MathQuestion     `json:"questions"`
+				Links     []types.MathQuestionNode `json:"links"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			require.Len(t, body.Questions, 1)
+			require.Equal(t, "material-exam", body.Questions[0].SourceBindingID)
+			require.Len(t, body.Links, 1)
+			require.Equal(t, "count", body.Links[0].NodeID)
+			questionsWritten = true
+			_, _ = w.Write([]byte(`{"success":true,"data":{"question_count":1}}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -97,15 +111,21 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 		Email: "math@example.local", Password: "secret-pass", KnowledgeBaseName: "人教版小学数学体系化掌握",
 		Curriculum: curriculum, Manifest: manifest,
 		MaterialText: map[string]string{"rj-g1-s2-xueba-2026-spring": "# 2026春一年级下册试卷\n\n题目"},
+		Questions: []types.MathQuestion{{
+			ID: "q-1", SourceBindingID: "material-exam", QuestionLocator: "PDF 第 1 页", QuestionType: "calculation",
+		}},
+		QuestionLinks: []types.MathQuestionNode{{QuestionID: "q-1", NodeID: "count", IsPrimary: true, Confidence: 0.9}},
 	})
 	require.NoError(t, err)
 	require.True(t, registered)
 	require.True(t, seeded)
 	require.True(t, sourcesWritten)
+	require.True(t, questionsWritten)
 	require.True(t, examUploaded)
 	require.Equal(t, "kb-1", report.KnowledgeBaseID)
 	require.Equal(t, 1, report.UploadedTextbooks)
 	require.Equal(t, 1, report.UploadedExams)
+	require.Equal(t, 1, report.ImportedQuestions)
 	require.False(t, strings.Contains(report.KnowledgeBaseID, "test-token"))
 }
 

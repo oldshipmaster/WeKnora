@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/mathmastery"
+	"github.com/Tencent/WeKnora/internal/types"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	curriculumPath := flag.String("curriculum", "data/math-mastery/pep-primary-math.json", "curriculum JSON path")
 	textDir := flag.String("text-dir", "", "optional directory containing <target_id>.md extracted textbooks")
 	examTextDir := flag.String("exam-text-dir", "", "optional directory containing <target_id>.md OCR exam text")
+	questionsPath := flag.String("questions", "/Volumes/extfastdata01/WeKnora-runtime/math-mastery/questions/full.json", "diagnostic question payload path; empty skips question import")
 	flag.Parse()
 
 	password := os.Getenv(*passwordEnv)
@@ -66,6 +68,26 @@ func main() {
 			materials[entry.TargetID] = string(content)
 		}
 	}
+	var questions []types.MathQuestion
+	var questionLinks []types.MathQuestionNode
+	if strings.TrimSpace(*questionsPath) != "" {
+		questionData, readErr := os.ReadFile(*questionsPath)
+		if readErr != nil {
+			fatal(fmt.Errorf("read diagnostic questions: %w", readErr))
+		}
+		var questionSeed struct {
+			Questions []types.MathQuestion     `json:"questions"`
+			Links     []types.MathQuestionNode `json:"links"`
+		}
+		if decodeErr := json.Unmarshal(questionData, &questionSeed); decodeErr != nil {
+			fatal(fmt.Errorf("decode diagnostic questions: %w", decodeErr))
+		}
+		if len(questionSeed.Questions) == 0 {
+			fatal(fmt.Errorf("diagnostic question payload has no questions"))
+		}
+		questions = questionSeed.Questions
+		questionLinks = questionSeed.Links
+	}
 
 	client := &http.Client{Timeout: 2 * time.Hour}
 	report, err := mathmastery.NewBootstrapClient(*baseURL, client).Run(context.Background(), mathmastery.BootstrapConfig{
@@ -76,6 +98,8 @@ func main() {
 		Manifest:          manifest,
 		TextbookText:      textbooks,
 		MaterialText:      materials,
+		Questions:         questions,
+		QuestionLinks:     questionLinks,
 	})
 	if err != nil {
 		fatal(err)
