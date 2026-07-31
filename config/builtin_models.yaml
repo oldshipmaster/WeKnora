@@ -1,0 +1,23 @@
+builtin_models:
+  - id: builtin-dashscope-qwen37-plus
+    type: KnowledgeQA
+    source: remote
+    is_default: true
+    name: qwen3.7-plus
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: ${DASHSCOPE_API_KEY}
+      provider: openai
+
+  - id: builtin-dashscope-text-embedding-v4
+    type: Embedding
+    source: remote
+    is_default: true
+    name: text-embedding-v4
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: ${DASHSCOPE_API_KEY}
+      provider: openai
+      embedding_parameters:
+        dimension: 1024
+        truncate_prompt_tokens: 0
