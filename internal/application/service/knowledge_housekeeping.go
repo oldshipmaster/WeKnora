@@ -140,6 +140,15 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 		logger.Infof(ctx, "[Housekeeping] promoted %d zero-subtask finalizing rows", zeroFinalizing.RowsAffected)
 	}
 
+	// Span rows are observability data, while knowledge.parse_status is the
+	// authoritative lifecycle. A worker interruption after committing the
+	// terminal knowledge state can leave an earlier span looking "running"
+	// forever even though no task remains. Reconcile only running spans owned by
+	// terminal knowledge: completed work closes as done; work whose parent
+	// failed closes as cancelled. Pending placeholders and every non-terminal
+	// knowledge remain untouched.
+	h.closeTerminalKnowledgeSpans(ctx, now)
+
 	// Sweep A: knowledge stuck in "pending", "processing", or "finalizing".
 	//
 	// Two-stage check is critical here: knowledge.updated_at advances
@@ -238,6 +247,39 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 		logger.Warnf(ctx, "[Housekeeping] summary sweep failed: %v", resSummary.Error)
 	} else if resSummary.RowsAffected > 0 {
 		logger.Infof(ctx, "[Housekeeping] recovered %d stuck summary rows", resSummary.RowsAffected)
+	}
+}
+
+func (h *HousekeepingService) closeTerminalKnowledgeSpans(ctx context.Context, now time.Time) {
+	terminalStatuses := []struct {
+		knowledgeStatus string
+		spanStatus      string
+	}{
+		{knowledgeStatus: types.ParseStatusCompleted, spanStatus: types.SpanStatusDone},
+		{knowledgeStatus: types.ParseStatusFailed, spanStatus: types.SpanStatusCancelled},
+	}
+	for _, terminal := range terminalStatuses {
+		knowledgeIDs := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+			Select("id").
+			Where("parse_status = ?", terminal.knowledgeStatus)
+		res := h.db.WithContext(ctx).Model(&types.KnowledgeProcessingSpan{}).
+			Where("status = ?", types.SpanStatusRunning).
+			Where("knowledge_id IN (?)", knowledgeIDs).
+			Updates(map[string]interface{}{
+				"status":      terminal.spanStatus,
+				"finished_at": now,
+			})
+		if res.Error != nil {
+			logger.Warnf(ctx,
+				"[Housekeeping] terminal %s span reconciliation failed: %v",
+				terminal.knowledgeStatus, res.Error)
+			continue
+		}
+		if res.RowsAffected > 0 {
+			logger.Infof(ctx,
+				"[Housekeeping] closed %d running span(s) owned by %s knowledge",
+				res.RowsAffected, terminal.knowledgeStatus)
+		}
 	}
 }
 

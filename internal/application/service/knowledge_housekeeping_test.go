@@ -241,6 +241,49 @@ func TestHousekeeping_PromotesFinalizingWithZeroOutstandingSubtasks(t *testing.T
 	assert.NotNil(t, processedAt)
 }
 
+func TestHousekeeping_ClosesRunningSpansOwnedByTerminalKnowledge(t *testing.T) {
+	db := setupHousekeepingDB(t)
+	svc := newHousekeepingSvcForTest(db)
+	stale := time.Now().Add(-3 * time.Hour)
+	insertKnowledge(t, db, "kid-completed-span", types.ParseStatusCompleted, stale)
+	insertKnowledge(t, db, "kid-failed-span", types.ParseStatusFailed, stale)
+	insertKnowledge(t, db, "kid-processing-span", types.ParseStatusProcessing, stale)
+	insertKnowledge(t, db, "kid-completed-pending", types.ParseStatusCompleted, stale)
+	insertSpan(t, db, "kid-completed-span", 1, "completed-running", types.SpanStatusRunning, stale)
+	insertSpan(t, db, "kid-failed-span", 1, "failed-running", types.SpanStatusRunning, stale)
+	insertSpan(t, db, "kid-processing-span", 1, "processing-running", types.SpanStatusRunning, stale)
+	insertSpan(t, db, "kid-completed-pending", 1, "completed-pending", types.SpanStatusPending, stale)
+
+	svc.runSweep(context.Background())
+
+	type spanState struct {
+		KnowledgeID string     `gorm:"column:knowledge_id"`
+		Status      string     `gorm:"column:status"`
+		FinishedAt  *time.Time `gorm:"column:finished_at"`
+	}
+	var states []spanState
+	require.NoError(t, db.Table("knowledge_processing_spans").
+		Select("knowledge_id, status, finished_at").
+		Where("knowledge_id IN ?", []string{
+			"kid-completed-span", "kid-failed-span", "kid-processing-span", "kid-completed-pending",
+		}).
+		Order("knowledge_id").
+		Find(&states).Error)
+	require.Len(t, states, 4)
+	byKnowledge := make(map[string]spanState, len(states))
+	for _, state := range states {
+		byKnowledge[state.KnowledgeID] = state
+	}
+	assert.Equal(t, types.SpanStatusDone, byKnowledge["kid-completed-span"].Status)
+	assert.NotNil(t, byKnowledge["kid-completed-span"].FinishedAt)
+	assert.Equal(t, types.SpanStatusCancelled, byKnowledge["kid-failed-span"].Status)
+	assert.NotNil(t, byKnowledge["kid-failed-span"].FinishedAt)
+	assert.Equal(t, types.SpanStatusRunning, byKnowledge["kid-processing-span"].Status)
+	assert.Nil(t, byKnowledge["kid-processing-span"].FinishedAt)
+	assert.Equal(t, types.SpanStatusPending, byKnowledge["kid-completed-pending"].Status)
+	assert.Nil(t, byKnowledge["kid-completed-pending"].FinishedAt)
+}
+
 func TestHousekeeping_FinalFailureGuardDoesNotClobberConcurrentCompletion(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	svc := newHousekeepingSvcForTest(db)
