@@ -19,6 +19,7 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	registered := false
 	seeded := false
 	sourcesWritten := false
+	examUploaded := false
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -48,6 +49,16 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "一年级上册.pdf", header.Filename)
 			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"knowledge-1","parse_status":"pending"}}`))
+		case "/api/v1/knowledge-bases/kb-1/knowledge":
+			require.Equal(t, http.MethodGet, r.Method)
+			_, _ = w.Write([]byte(`{"success":true,"data":[]}`))
+		case "/api/v1/knowledge-bases/kb-1/knowledge/manual":
+			var payload map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+			process := payload["process_config"].(map[string]any)
+			require.Equal(t, false, process["graph_enabled"])
+			examUploaded = true
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":"knowledge-exam","parse_status":"pending"}}`))
 		case "/api/v1/knowledge-bases/kb-1/math-mastery/seed":
 			var seed CurriculumSeed
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&seed))
@@ -59,7 +70,9 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 				Sources []map[string]any `json:"sources"`
 			}
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			require.Len(t, body.Sources, 2)
 			require.Equal(t, "processing", body.Sources[0]["status"])
+			require.Equal(t, "processing", body.Sources[1]["status"])
 			sourcesWritten = true
 			_, _ = w.Write([]byte(`{"success":true}`))
 		default:
@@ -69,21 +82,30 @@ func TestBootstrapClientCreatesKnowledgeBaseUploadsAndSeeds(t *testing.T) {
 	defer server.Close()
 
 	curriculum := []byte(`{"nodes":[{"id":"count","node_type":"concept","grade":1,"term":1,"domain":"number","title":"数一数"}],"edges":[]}`)
-	manifest := Manifest{Entries: []ManifestEntry{{
-		TargetID: "rj-g1-s1-textbook", MaterialID: "material-1", Kind: MaterialTextbook,
-		Status: StatusFound, Title: "一年级上册", Edition: "人教版", Grade: 1, Term: 1, Path: book,
-	}}}
+	manifest := Manifest{Entries: []ManifestEntry{
+		{
+			TargetID: "rj-g1-s1-textbook", MaterialID: "material-1", Kind: MaterialTextbook,
+			Status: StatusFound, Title: "一年级上册", Edition: "人教版", Grade: 1, Term: 1, Path: book,
+		},
+		{
+			TargetID: "rj-g1-s2-xueba-2026-spring", MaterialID: "material-exam", Kind: MaterialExam,
+			Status: StatusFound, Title: "2026春一年级下册试卷", Edition: "人教版", Grade: 1, Term: 2,
+		},
+	}}
 
 	report, err := NewBootstrapClient(server.URL, server.Client()).Run(context.Background(), BootstrapConfig{
 		Email: "math@example.local", Password: "secret-pass", KnowledgeBaseName: "人教版小学数学体系化掌握",
 		Curriculum: curriculum, Manifest: manifest,
+		MaterialText: map[string]string{"rj-g1-s2-xueba-2026-spring": "# 2026春一年级下册试卷\n\n题目"},
 	})
 	require.NoError(t, err)
 	require.True(t, registered)
 	require.True(t, seeded)
 	require.True(t, sourcesWritten)
+	require.True(t, examUploaded)
 	require.Equal(t, "kb-1", report.KnowledgeBaseID)
 	require.Equal(t, 1, report.UploadedTextbooks)
+	require.Equal(t, 1, report.UploadedExams)
 	require.False(t, strings.Contains(report.KnowledgeBaseID, "test-token"))
 }
 
@@ -128,5 +150,29 @@ func TestUploadManualTextbookPublishesExtractedTextWithGraphProcessing(t *testin
 	}, "# 一年级上册\n\n数一数")
 	require.NoError(t, err)
 	require.Equal(t, "knowledge-manual", id)
+	require.Equal(t, StatusProcessing, status)
+}
+
+func TestUploadManualExamPublishesOCRTextWithoutNoisyGraphExtraction(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		require.Contains(t, payload["content"], "PDF 第 12 页")
+		process := payload["process_config"].(map[string]any)
+		require.Equal(t, false, process["graph_enabled"])
+		extract := process["extract_config"].(map[string]any)
+		require.Equal(t, false, extract["enabled"])
+		_, _ = w.Write([]byte(`{"success":true,"data":{"id":"knowledge-exam","parse_status":"pending"}}`))
+	}))
+	defer server.Close()
+
+	client := NewBootstrapClient(server.URL, server.Client())
+	client.token = "token"
+	id, status, err := client.uploadManualMaterial(context.Background(), "kb-1", ManifestEntry{
+		TargetID: "exam-1", Kind: MaterialExam, Status: StatusFound, Title: "2026春一年级下册试卷",
+	}, "# 2026春一年级下册试卷\n\n## PDF 第 12 页\n\n1. 计算题")
+	require.NoError(t, err)
+	require.Equal(t, "knowledge-exam", id)
 	require.Equal(t, StatusProcessing, status)
 }

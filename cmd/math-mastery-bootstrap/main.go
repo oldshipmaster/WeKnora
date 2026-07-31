@@ -21,6 +21,7 @@ func main() {
 	manifestPath := flag.String("manifest", "/Volumes/extfastdata01/WeKnora-runtime/math-mastery/manifest.json", "material manifest path")
 	curriculumPath := flag.String("curriculum", "data/math-mastery/pep-primary-math.json", "curriculum JSON path")
 	textDir := flag.String("text-dir", "", "optional directory containing <target_id>.md extracted textbooks")
+	examTextDir := flag.String("exam-text-dir", "", "optional directory containing <target_id>.md OCR exam text")
 	flag.Parse()
 
 	password := os.Getenv(*passwordEnv)
@@ -40,6 +41,7 @@ func main() {
 		fatal(fmt.Errorf("read curriculum: %w", err))
 	}
 	textbooks := make(map[string]string)
+	materials := make(map[string]string)
 	if strings.TrimSpace(*textDir) != "" {
 		for _, entry := range manifest.Entries {
 			if entry.Kind != mathmastery.MaterialTextbook || entry.Status != mathmastery.StatusFound {
@@ -52,6 +54,18 @@ func main() {
 			textbooks[entry.TargetID] = string(content)
 		}
 	}
+	if strings.TrimSpace(*examTextDir) != "" {
+		for _, entry := range manifest.Entries {
+			if entry.Kind != mathmastery.MaterialExam || entry.Status != mathmastery.StatusFound {
+				continue
+			}
+			content, readErr := os.ReadFile(filepath.Join(*examTextDir, entry.TargetID+".md"))
+			if readErr != nil {
+				fatal(fmt.Errorf("read OCR exam %s: %w", entry.TargetID, readErr))
+			}
+			materials[entry.TargetID] = string(content)
+		}
+	}
 
 	client := &http.Client{Timeout: 2 * time.Hour}
 	report, err := mathmastery.NewBootstrapClient(*baseURL, client).Run(context.Background(), mathmastery.BootstrapConfig{
@@ -61,6 +75,7 @@ func main() {
 		Curriculum:        curriculum,
 		Manifest:          manifest,
 		TextbookText:      textbooks,
+		MaterialText:      materials,
 	})
 	if err != nil {
 		fatal(err)

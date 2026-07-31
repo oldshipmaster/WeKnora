@@ -26,12 +26,15 @@ type BootstrapConfig struct {
 	Curriculum        []byte
 	Manifest          Manifest
 	TextbookText      map[string]string
+	MaterialText      map[string]string
 }
 
 type BootstrapReport struct {
 	KnowledgeBaseID   string   `json:"knowledge_base_id"`
 	UploadedTextbooks int      `json:"uploaded_textbooks"`
 	SkippedTextbooks  int      `json:"skipped_textbooks"`
+	UploadedExams     int      `json:"uploaded_exams"`
+	SkippedExams      int      `json:"skipped_exams"`
 	MissingExams      []string `json:"missing_exams"`
 }
 
@@ -73,32 +76,43 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 
 	report := BootstrapReport{KnowledgeBaseID: kbID, MissingExams: []string{}}
 	uploaded := make(map[string]UploadedKnowledge)
+	materialText := make(map[string]string, len(cfg.TextbookText)+len(cfg.MaterialText))
+	for targetID, content := range cfg.TextbookText {
+		materialText[targetID] = content
+	}
+	for targetID, content := range cfg.MaterialText {
+		materialText[targetID] = content
+	}
 	existing := map[string]knowledgeRecord{}
-	if len(cfg.TextbookText) > 0 {
+	if len(materialText) > 0 {
 		existing, err = c.listKnowledge(ctx, kbID)
 		if err != nil {
-			return report, fmt.Errorf("list existing textbook knowledge: %w", err)
+			return report, fmt.Errorf("list existing material knowledge: %w", err)
 		}
 	}
 	for _, entry := range cfg.Manifest.Entries {
 		if entry.Kind == MaterialExam && entry.Status == StatusMissing {
 			report.MissingExams = append(report.MissingExams, entry.Title)
-		}
-		if entry.Kind != MaterialTextbook || entry.Status != StatusFound {
 			continue
 		}
-		if content := strings.TrimSpace(cfg.TextbookText[entry.TargetID]); content != "" {
+		if entry.Status != StatusFound {
+			continue
+		}
+		if content := strings.TrimSpace(materialText[entry.TargetID]); content != "" {
 			if knowledge, ok := existing[entry.Title]; ok {
-				report.SkippedTextbooks++
+				incrementSkippedMaterial(&report, entry.Kind)
 				uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledge.ID, Status: materialStatusFromParseStatus(knowledge.ParseStatus)}
 				continue
 			}
-			knowledgeID, status, uploadErr := c.uploadManualTextbook(ctx, kbID, entry, content)
+			knowledgeID, status, uploadErr := c.uploadManualMaterial(ctx, kbID, entry, content)
 			if uploadErr != nil {
 				return report, uploadErr
 			}
-			report.UploadedTextbooks++
+			incrementUploadedMaterial(&report, entry.Kind)
 			uploaded[entry.TargetID] = UploadedKnowledge{ID: knowledgeID, Status: status}
+			continue
+		}
+		if entry.Kind != MaterialTextbook {
 			continue
 		}
 		knowledgeID, status, duplicate, uploadErr := c.uploadTextbook(ctx, kbID, entry)
@@ -123,6 +137,22 @@ func (c *BootstrapClient) Run(ctx context.Context, cfg BootstrapConfig) (Bootstr
 		return report, fmt.Errorf("write mastery sources: %w", err)
 	}
 	return report, nil
+}
+
+func incrementUploadedMaterial(report *BootstrapReport, kind MaterialKind) {
+	if kind == MaterialExam {
+		report.UploadedExams++
+		return
+	}
+	report.UploadedTextbooks++
+}
+
+func incrementSkippedMaterial(report *BootstrapReport, kind MaterialKind) {
+	if kind == MaterialExam {
+		report.SkippedExams++
+		return
+	}
+	report.SkippedTextbooks++
 }
 
 type knowledgeRecord struct {
@@ -306,15 +336,20 @@ func (c *BootstrapClient) uploadTextbook(ctx context.Context, kbID string, entry
 }
 
 func (c *BootstrapClient) uploadManualTextbook(ctx context.Context, kbID string, entry ManifestEntry, content string) (string, MaterialStatus, error) {
+	return c.uploadManualMaterial(ctx, kbID, entry, content)
+}
+
+func (c *BootstrapClient) uploadManualMaterial(ctx context.Context, kbID string, entry ManifestEntry, content string) (string, MaterialStatus, error) {
+	graphEnabled := entry.Kind == MaterialTextbook
 	payload := map[string]any{
 		"title":   entry.Title,
 		"content": content,
 		"status":  "publish",
 		"channel": "api",
 		"process_config": map[string]any{
-			"graph_enabled": true,
+			"graph_enabled": graphEnabled,
 			"extract_config": map[string]any{
-				"enabled": true,
+				"enabled": graphEnabled,
 			},
 		},
 	}
@@ -323,7 +358,7 @@ func (c *BootstrapClient) uploadManualTextbook(ctx context.Context, kbID string,
 	}
 	path := "/knowledge-bases/" + url.PathEscape(kbID) + "/knowledge/manual"
 	if err := c.sendJSON(ctx, http.MethodPost, path, payload, &response); err != nil {
-		return "", "", fmt.Errorf("upload extracted textbook %q: %w", entry.Title, err)
+		return "", "", fmt.Errorf("upload extracted material %q: %w", entry.Title, err)
 	}
 	if response.Data.ID == "" {
 		return "", "", errors.New("manual textbook response did not include a knowledge ID")
