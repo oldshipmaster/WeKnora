@@ -3,7 +3,6 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mode="${1:-infra}"
-cache_root="${WEKNORA_GO_CACHE_ROOT:-/Volumes/extfastdata01/.cache/weknora-go}"
 
 cd "${repo_dir}"
 
@@ -14,10 +13,10 @@ case "${mode}" in
     exec docker compose -f docker-compose.dev.yml -f docker-compose.math.yml --profile neo4j up -d postgres redis docreader neo4j
     ;;
   app)
-    mkdir -p "${cache_root}/mod" "${cache_root}/build" "${cache_root}/tmp"
-    export GOMODCACHE="${cache_root}/mod"
-    export GOCACHE="${cache_root}/build"
-    export GOTMPDIR="${cache_root}/tmp"
+    export GOMODCACHE="${WEKNORA_GOMODCACHE:-/Volumes/extfastdata01/.cache/weknora-go-mod}"
+    export GOCACHE="${WEKNORA_GOCACHE:-/Volumes/extfastdata01/.cache/weknora-go-build}"
+    export GOTMPDIR="${WEKNORA_GOTMPDIR:-/Volumes/extfastdata01/.cache/weknora-go-tmp}"
+    mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
     export DASHSCOPE_API_KEY
     DASHSCOPE_API_KEY="$(security find-generic-password -a oldshipmaster -s weknora-dashscope-api-key -w)"
     export SYSTEM_AES_KEY
