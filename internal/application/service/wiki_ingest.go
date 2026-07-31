@@ -1017,7 +1017,7 @@ func (s *wikiIngestService) scheduleStaleClaimRecheck(ctx context.Context, paylo
 		asynq.MaxRetry(wikiIngestMaxRetry),
 		asynq.Timeout(60*time.Minute),
 		asynq.ProcessIn(wikiClaimStaleAfter+wikiFollowUpDelay),
-		asynq.TaskID("wiki-ingest-recheck-"+payload.KnowledgeBaseID),
+		asynq.TaskID(wikiStaleClaimRecheckTaskID(payload.KnowledgeBaseID, time.Now())),
 	)
 	if _, err := s.task.Enqueue(t); err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
@@ -1027,6 +1027,15 @@ func (s *wikiIngestService) scheduleStaleClaimRecheck(ctx context.Context, paylo
 		return false
 	}
 	return true
+}
+
+// wikiStaleClaimRecheckTaskID coalesces concurrent safety nets while allowing
+// a recheck that fires too early for newer claims to arm the next recovery
+// window. A permanent per-KB ID conflicts with the currently executing task
+// and can otherwise leave durable rows without any future trigger.
+func wikiStaleClaimRecheckTaskID(knowledgeBaseID string, now time.Time) string {
+	windowSeconds := int64(wikiClaimStaleAfter / time.Second)
+	return fmt.Sprintf("wiki-ingest-recheck-%s-%d", knowledgeBaseID, now.Unix()/windowSeconds)
 }
 
 // decodePendingRows converts raw task_pending_ops rows into WikiPendingOps,

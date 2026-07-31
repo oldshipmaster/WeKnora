@@ -4,7 +4,22 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
+
+func TestWikiStaleClaimRecheckTaskIDRotatesAfterOneClaimWindow(t *testing.T) {
+	const knowledgeBaseID = "kb-1"
+	first := wikiStaleClaimRecheckTaskID(knowledgeBaseID, time.Unix(1700000000, 0))
+	sameWindow := wikiStaleClaimRecheckTaskID(knowledgeBaseID, time.Unix(1700000060, 0))
+	nextWindow := wikiStaleClaimRecheckTaskID(knowledgeBaseID, time.Unix(1700005401, 0))
+
+	if first != "wiki-ingest-recheck-kb-1-314814" || sameWindow != first {
+		t.Fatalf("same stale-claim window IDs = %q and %q, want one coalesced ID", first, sameWindow)
+	}
+	if nextWindow != "wiki-ingest-recheck-kb-1-314815" || nextWindow == first {
+		t.Fatalf("next stale-claim window ID = %q, want a fresh task ID", nextWindow)
+	}
+}
 
 // TestIsTransientLLMError_HTTPStatuses covers the status codes we know
 // the generic REST chat provider bubbles up as "API request failed with
