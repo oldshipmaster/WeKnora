@@ -2089,31 +2089,29 @@ async function createNewSession(value: string): Promise<void> {
                 </template>
               </button>
               <t-icon name="chevron-right" class="breadcrumb-separator" />
-              <template>
-                <span :class="['breadcrumb-tab', { active: activeKbTab === 'documents' }]"
-                  @click="activeKbTab = 'documents'">{{ $t('knowledgeEditor.wikiBrowser.tabDocuments') }}</span>
-                <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
-                <span v-if="isWiki" :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
-                  @click="activeKbTab = 'wiki'">
-                  Wiki
+              <span :class="['breadcrumb-tab', { active: activeKbTab === 'documents' }]"
+                @click="activeKbTab = 'documents'">{{ $t('knowledgeEditor.wikiBrowser.tabDocuments') }}</span>
+              <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
+              <span v-if="isWiki" :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
+                @click="activeKbTab = 'wiki'">
+                Wiki
+                <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
+                  <t-loading size="small" class="breadcrumb-tab-indicator" />
+                </t-tooltip>
+              </span>
+              <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
+              <t-tooltip v-if="isWiki" :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
+                <span :class="['breadcrumb-tab', { active: activeKbTab === 'graph', indexing: wikiIsIndexing }]"
+                  @click="activeKbTab = 'graph'">
+                  {{ $t('knowledgeEditor.wikiBrowser.tabGraph') }}
                   <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
                     <t-loading size="small" class="breadcrumb-tab-indicator" />
                   </t-tooltip>
                 </span>
-                <span v-if="isWiki" class="breadcrumb-tab-sep">/</span>
-                <t-tooltip v-if="isWiki" :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
-                  <span :class="['breadcrumb-tab', { active: activeKbTab === 'graph', indexing: wikiIsIndexing }]"
-                    @click="activeKbTab = 'graph'">
-                    {{ $t('knowledgeEditor.wikiBrowser.tabGraph') }}
-                    <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
-                      <t-loading size="small" class="breadcrumb-tab-indicator" />
-                    </t-tooltip>
-                  </span>
-                </t-tooltip>
-                <span class="breadcrumb-tab-sep">/</span>
-                <span :class="['breadcrumb-tab', { active: activeKbTab === 'mastery' }]"
-                  @click="activeKbTab = 'mastery'">{{ $t('knowledgeEditor.wikiBrowser.tabMastery') }}</span>
-              </template>
+              </t-tooltip>
+              <span class="breadcrumb-tab-sep">/</span>
+              <span :class="['breadcrumb-tab', { active: activeKbTab === 'mastery' }]"
+                @click="activeKbTab = 'mastery'">{{ $t('knowledgeEditor.wikiBrowser.tabMastery') }}</span>
             </h2>
             <!-- 标题行右侧的动作锚点：聚拢"信息"和"设置"两个圆形按钮。 -->
             <div class="kb-title-actions">
